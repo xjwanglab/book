@@ -9,11 +9,29 @@ import random as pyrand # Import before Brian floods the namespace
 
 from brian import *
 
-try:
-    from xjlib import briantools
-except ImportError:
-    print("Error: Please add xjlib to your Python path.")
-    exit()
+from brian.globalprefs import *
+
+import numpy as np
+
+def accelerate():
+    set_global_preferences(
+        useweave=True,
+        usecodegen=True,
+        usecodegenweave=True,
+        usecodegenstateupdate=True,
+        usenewpropagate=True,
+        usecodegenthreshold=True,
+        gcc_options=['-ffast-math', '-march=native']
+        )
+
+def savespikes(spikemonitor, filename):
+    print("Saving spike times to " + filename)
+    np.savetxt(filename, spikemonitor.spikes, fmt='%-9d %25.18e',
+               header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
+
+def loadspikes(filename):
+    print("Loading spike times from " + filename)
+    return np.loadtxt(filename)
 
 #=========================================================================================
 # Equations
@@ -300,15 +318,15 @@ class Simulation(object):
         np.random.seed(seed)
 
         # Make Brian faster
-        briantools.accelerate()
+        accelerate()
 
         # Initialize the network and run
         self.model.reinit()
         self.network.run(T, report='text')
 
     def savespikes(self, filename_exc='spikesE.txt', filename_inh='spikesI.txt'):
-        briantools.savespikes(self.model.net['smE'], filename_exc)
-        briantools.savespikes(self.model.net['smI'], filename_inh)
+        savespikes(self.model.net['smE'], filename_exc)
+        savespikes(self.model.net['smI'], filename_inh)
 
 #/////////////////////////////////////////////////////////////////////////////////////////
 
@@ -332,7 +350,7 @@ if __name__ == '__main__':
     #-------------------------------------------------------------------------------------
 
     # Load spikes
-    spikes = briantools.loadspikes('spikesE.txt')
+    spikes = loadspikes('spikesE.txt')
 
     import matplotlib.pyplot as plt
 
