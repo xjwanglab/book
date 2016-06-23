@@ -4,6 +4,7 @@
 *.so
 *.pkl
 *.txt
+*.pdf
 *.egg-info/
 references/
 work/
