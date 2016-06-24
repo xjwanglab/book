@@ -311,7 +311,7 @@ class Simulation(object):
         self.model   = Model(modelparams, stimparams, dt)
         self.network = Network(self.model)
 
-    def run(self, T, seed):
+    def run(self, T, seed=1):
         # Initialize random number generators
         pyrand.seed(seed)
         np.random.seed(seed)
@@ -339,13 +339,14 @@ if __name__ == '__main__':
         Ton  = 0.5*second, # Stimulus onset
         Toff = 1.5*second, # Stimulus offset
         mu0  = 40*Hz,      # Input rate
-        coh  = 1.6         # Percent coherence
+        coh  = 0           # Percent coherence
         )
 
     dt = 0.02*ms
     T  = 2*second
 
     sim = Simulation(modelparams, stimparams, dt)
+    sim.model.stimulus.set_coh(1.6)
     sim.run(T, seed=1234)
     sim.savespikes('spikesE.txt', 'spikesI.txt')
 
