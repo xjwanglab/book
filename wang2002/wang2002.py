@@ -335,7 +335,7 @@ if __name__ == '__main__':
         Ton  = 0.5*second, # Stimulus onset
         Toff = 1.5*second, # Stimulus offset
         mu0  = 40*Hz,      # Input rate
-        coh  = 51.2        # Percent coherence
+        coh  = 1.6         # Percent coherence
         )
 
     dt = 0.02*ms
