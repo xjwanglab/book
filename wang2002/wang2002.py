@@ -131,14 +131,18 @@ class Stimulus(object):
     def __init__(self, Ton, Toff, mu0, coh):
         self.Ton  = Ton
         self.Toff = Toff
-        self.pos  = mu0*(1 + coh/100)
-        self.neg  = mu0*(1 - coh/100)
+        self.mu0  = mu0
+        self.set_coh(coh)
 
     def s1(self, t):
         return self.pos*(self.Ton <= t < self.Toff)
 
     def s2(self, t):
         return self.neg*(self.Ton <= t < self.Toff)
+
+    def set_coh(self, coh):
+        self.pos = self.mu0*(1 + coh/100)
+        self.neg = self.mu0*(1 - coh/100)
 
 class Model(NetworkOperation):
     def __init__(self, modelparams, stimparams, dt):
