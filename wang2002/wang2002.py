@@ -9,7 +9,7 @@ from collections import OrderedDict
 
 import random as pyrand # Import before Brian floods the namespace
 
-# Once your code is working, turn units off for speed
+# Once code is working, turn off unit-checking for speed
 # import brian_no_units
 
 from brian import *
