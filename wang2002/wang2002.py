@@ -145,7 +145,7 @@ class Stimulus(object):
         self.neg = self.mu0*(1 - coh/100)
 
 class Model(NetworkOperation):
-    def __init__(self, modelparams, stimparams, dt):
+    def __init__(self, modelparams, clock, stimulus):
         #---------------------------------------------------------------------------------
         # Complete the model specification
         #---------------------------------------------------------------------------------
@@ -185,10 +185,9 @@ class Model(NetworkOperation):
             ])
 
         #---------------------------------------------------------------------------------
-        # Clock
+        # Initialize
         #---------------------------------------------------------------------------------
 
-        clock = Clock(dt)
         super(Model, self).__init__(clock=clock)
 
         #---------------------------------------------------------------------------------
@@ -233,9 +232,7 @@ class Model(NetworkOperation):
         # External input (post-synaptic)
         #---------------------------------------------------------------------------------
 
-        self.stimulus = Stimulus(stimparams['Ton'], stimparams['Toff'],
-                                 stimparams['mu0'], stimparams['coh'])
-        for i, stimulus in zip([1, 2], [self.stimulus.s1, self.stimulus.s2]):
+        for i, stimulus in zip([1, 2], [stimulus.s1, stimulus.s2]):
             net['pg'+str(i)] = PoissonGroup(params['N'+str(i)], stimulus, clock=clock)
             net['ic'+str(i)] = IdentityConnection(net['pg'+str(i)], exc[i],
                                                   'sAMPA_ext', delay=delay)
@@ -308,8 +305,11 @@ class Model(NetworkOperation):
 
 class Simulation(object):
     def __init__(self, modelparams, stimparams, dt):
-        self.model   = Model(modelparams, stimparams, dt)
-        self.network = Network(self.model)
+        self.clock    = Clock(dt)
+        self.stimulus = Stimulus(stimparams['Ton'], stimparams['Toff'],
+                                 stimparams['mu0'], stimparams['coh'])
+        self.model    = Model(modelparams, self.clock, self.stimulus)
+        self.network  = Network(self.model)
 
     def run(self, T, seed=1):
         # Initialize random number generators
@@ -346,7 +346,7 @@ if __name__ == '__main__':
     T  = 2*second
 
     sim = Simulation(modelparams, stimparams, dt)
-    sim.model.stimulus.set_coh(1.6) # Shows how coherence can be changed
+    sim.stimulus.set_coh(1.6) # Shows how coherence can be changed
     sim.run(T, seed=1234)
     sim.savespikes('spikesE.txt', 'spikesI.txt')
 
