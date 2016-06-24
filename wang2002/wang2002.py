@@ -282,7 +282,7 @@ class Model(NetworkOperation):
 
     def reinit(self):
         # Reset network components
-        for n in self.net.values():
+        for n in self.net.values() + self.mons.values():
             n.reinit()
 
         # Randomly initialize membrane potentials
@@ -295,9 +295,6 @@ class Model(NetworkOperation):
             setattr(self.net['E'], x, 0)
         for x in ['sAMPA_ext', 'sGABA']:
             setattr(self.net['I'], x, 0)
-
-        # Reset clock
-        self.clock.reinit()
 
 #=========================================================================================
 # Simulation
@@ -316,7 +313,8 @@ class Simulation(object):
         pyrand.seed(seed)
         np.random.seed(seed)
 
-        # Initialize the network and run
+        # Initialize and run
+        self.clock.reinit()
         self.model.reinit()
         self.network.run(T, report='text')
 
