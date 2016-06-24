@@ -346,7 +346,7 @@ if __name__ == '__main__':
     T  = 2*second
 
     sim = Simulation(modelparams, stimparams, dt)
-    sim.model.stimulus.set_coh(1.6)
+    sim.model.stimulus.set_coh(1.6) # Shows how coherence can be changed
     sim.run(T, seed=1234)
     sim.savespikes('spikesE.txt', 'spikesI.txt')
 
