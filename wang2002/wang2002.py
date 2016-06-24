@@ -191,8 +191,8 @@ class Model(NetworkOperation):
         # Neuron populations
         #---------------------------------------------------------------------------------
 
-        net  = {} # Network objects
-        exc  = {} # Excitatory subpopulations
+        net = {} # Network objects
+        exc = {} # Excitatory subpopulations
 
         # E/I populations
         for x in ['E', 'I']:
