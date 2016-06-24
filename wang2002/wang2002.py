@@ -191,9 +191,8 @@ class Model(NetworkOperation):
         # Neuron populations
         #---------------------------------------------------------------------------------
 
-        net  = dict() # Network objects
-        exc  = dict() # Excitatory subpopulations
-        mons = dict() # Monitors
+        net  = {} # Network objects
+        exc  = {} # Excitatory subpopulations
 
         # E/I populations
         for x in ['E', 'I']:
@@ -241,6 +240,7 @@ class Model(NetworkOperation):
         # Record spikes
         #---------------------------------------------------------------------------------
 
+        mons = {}
         for x in ['E', 'I']:
             mons['sm'+x] = SpikeMonitor(net[x], record=True)
 
