@@ -134,6 +134,7 @@ class Stimulus(object):
         self.Ton  = Ton
         self.Toff = Toff
         self.mu0  = mu0
+
         self.set_coh(coh)
 
     def s1(self, t):
