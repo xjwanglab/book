@@ -1,16 +1,16 @@
 """
 Probabilistic decision making by slow reverberation in cortical circuits.
 X.-J. Wang, Neuron 2002.
-
 http://dx.doi.org/10.1016/S0896-6273(02)01092-9
-
 """
 import random as pyrand # Import before Brian floods the namespace
-
-# Once your code is working, turn units off for speed
-# import brian_no_units
-
+import brian_no_units
 from brian import *
+
+from brian.network import network_operation
+from brian.globalprefs import set_global_preferences
+
+import numpy as np
 
 # Make Brian faster
 set_global_preferences(
@@ -129,16 +129,20 @@ modelparams = dict(
 
 class Stimulus(object):
     def __init__(self, Ton, Toff, mu0, coh):
-        self.Ton  = Ton
-        self.Toff = Toff
-        self.pos  = mu0*(1 + coh/100)
-        self.neg  = mu0*(1 - coh/100)
+        self.Ton  = Ton     # stimulus onset time
+        self.Toff = Toff    # stimulus offset time
+        self.mu0  = mu0     # input rate
+        self.coh  = coh     # stimulus coherence
 
     def s1(self, t):
-        return self.pos*(self.Ton <= t < self.Toff)
+        if self.Ton <= t < self.Toff:
+            return self.mu0*(1 + self.coh/100)
+        return 0
 
     def s2(self, t):
-        return self.neg*(self.Ton <= t < self.Toff)
+        if self.Ton <= t < self.Toff:
+            return self.mu0*(1 - self.coh/100)
+        return 0
 
 class Model(NetworkOperation):
     def __init__(self, modelparams, stimparams, dt):
@@ -187,13 +191,15 @@ class Model(NetworkOperation):
         clock = Clock(dt)
         super(Model, self).__init__(clock=clock)
 
+        # Monitor clock
+        self.clock_mon = Clock(dt=0.2*ms)
+
         #---------------------------------------------------------------------------------
         # Neuron populations
         #---------------------------------------------------------------------------------
 
-        net  = dict() # Network objects
-        exc  = dict() # Excitatory subpopulations
-        mons = dict() # Monitors
+        net = dict() # network objects
+        mon = dict() # monitors
 
         # E/I populations
         for x in ['E', 'I']:
@@ -203,11 +209,12 @@ class Model(NetworkOperation):
                                  reset=params['Vreset'],
                                  refractory=params['tau_ref_'+x],
                                  clock=clock,
-                                 order=2, compile=True, freeze=True)
+                                 order=2, freeze=True)
 
         # Excitatory subpopulations
+        netE = dict() # create a separate dictionary because of the overlapping
         for x in xrange(3):
-            exc[x] = net['E'].subgroup(params['N'+str(x)])
+            netE[x] = net['E'].subgroup(params['N'+str(x)])
 
         #---------------------------------------------------------------------------------
         # Background input (post-synaptic)
@@ -234,7 +241,7 @@ class Model(NetworkOperation):
                                  stimparams['mu0'], stimparams['coh'])
         for i, stimulus in zip([1, 2], [self.stimulus.s1, self.stimulus.s2]):
             net['pg'+str(i)] = PoissonGroup(params['N'+str(i)], stimulus, clock=clock)
-            net['ic'+str(i)] = IdentityConnection(net['pg'+str(i)], exc[i],
+            net['ic'+str(i)] = IdentityConnection(net['pg'+str(i)], netE[i],
                                                   'sAMPA_ext', delay=delay)
 
         #---------------------------------------------------------------------------------
@@ -242,7 +249,8 @@ class Model(NetworkOperation):
         #---------------------------------------------------------------------------------
 
         for x in ['E', 'I']:
-            mons['sm'+x] = SpikeMonitor(net[x], record=True)
+            mon['spike_'+x] = SpikeMonitor(net[x], record=True)
+            mon[x] = MultiStateMonitor(net[x], record=True, clock=self.clock_mon)
 
         #---------------------------------------------------------------------------------
         # Setup
@@ -250,26 +258,25 @@ class Model(NetworkOperation):
 
         self.params = params
         self.net    = net
-        self.exc    = exc
-        self.mons   = mons
-
-        # Add network objects and monitors to NetworkOperation's contained_objects
-        self.contained_objects += self.net.values() + self.mons.values()
+        self.netE   = netE
+        self.mon    = mon
+        # Add net and mon items to NetworkOperation's contained_objects
+        self.contained_objects += self.net.values() + self.mon.values()
         self.contained_objects += [self.get_recurrent_input()]
 
     def get_recurrent_input(self):
         @network_operation(when='start', clock=self.clock)
         def recurrent_input():
             # AMPA
-            S = self.W.dot([self.exc[i].sAMPA.sum() for i in xrange(3)])
+            S = self.W.dot([self.netE[i].sAMPA.sum() for i in xrange(3)])
             for i in xrange(3):
-                self.exc[i].S_AMPA = S[i]
+                self.netE[i].S_AMPA = S[i]
             self.net['I'].S_AMPA = S[0]
 
             # NMDA
-            S = self.W.dot([self.exc[i].sNMDA.sum() for i in xrange(3)])
+            S = self.W.dot([self.netE[i].sNMDA.sum() for i in xrange(3)])
             for i in xrange(3):
-                self.exc[i].S_NMDA = S[i]
+                self.netE[i].S_NMDA = S[i]
             self.net['I'].S_NMDA = S[0]
 
             # GABA
@@ -286,8 +293,9 @@ class Model(NetworkOperation):
 
         # Randomly intialize membrane potential
         for x in ['E', 'I']:
-            self.net[x].V = np.random.uniform(self.params['Vreset'], self.params['Vth'],
-                                              size=self.params['N_'+x])
+            self.net[x].V = np.random.uniform(self.params['Vreset'],
+                                              self.params['Vth'],
+                                              size=(self.params['N_'+x],))
 
         # Set synaptic variables to zero
         for x in ['sAMPA_ext', 'sAMPA', 'x', 'sNMDA']:
@@ -297,6 +305,7 @@ class Model(NetworkOperation):
 
         # Reset clock
         self.clock.reinit()
+        self.clock_mon.reinit()
 
 #=========================================================================================
 # Simulation
@@ -307,7 +316,7 @@ class Simulation(object):
         self.model   = Model(modelparams, stimparams, dt)
         self.network = Network(self.model)
 
-    def run(self, T, seed):
+    def run(self, T, seed=1):
         # Initialize random number generators
         pyrand.seed(seed)
         np.random.seed(seed)
@@ -316,41 +325,39 @@ class Simulation(object):
         self.model.reinit()
         self.network.run(T, report='text')
 
-    def savespikes(self, filename_exc, filename_inh):
-        print("Saving excitatory spike times to " + filename_exc)
-        np.savetxt(filename_exc, self.model.mons['smE'].spikes, fmt='%-9d %25.18e',
-                   header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
-
-        print("Saving inhibitory spike times to " + filename_inh)
-        np.savetxt(filename_inh, self.model.mons['smI'].spikes, fmt='%-9d %25.18e',
-                   header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
-
-    def loadspikes(self, *args):
-        return [np.loadtxt(filename) for filename in args]
+    def savespikes(self):
+        for x in ['E','I']:
+            spikemonitor = self.model.mon['spike_'+x]
+            filename = 'spikes' + x + '.txt'
+            print("Saving spike times to " + filename)
+            np.savetxt(filename, spikemonitor.spikes, fmt='%-9d %25.18e',
+                       header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
 
 #/////////////////////////////////////////////////////////////////////////////////////////
 
 if __name__ == '__main__':
     stimparams = dict(
-        Ton  = 0.5*second, # Stimulus onset
-        Toff = 1.5*second, # Stimulus offset
-        mu0  = 40*Hz,      # Input rate
-        coh  = 51.2        # Percent coherence
+        Ton  = 0.5*second,
+        Toff = 1.5*second,
+        mu0  = 40*Hz,
+        coh  = 1.6
         )
 
-    dt = 0.02*ms
-    T  = 2*second
+    dt = 0.02*ms # For testing purpose, reducing dt to 0.2*ms
+    T  = 2.0*second
 
     sim = Simulation(modelparams, stimparams, dt)
-    sim.run(T, seed=1234)
-    sim.savespikes('spikesE.txt', 'spikesI.txt')
+    sim.run(T, seed=1)
+    sim.savespikes()
 
     #-------------------------------------------------------------------------------------
     # Spike raster plot
     #-------------------------------------------------------------------------------------
 
-    # Load excitatory spikes
-    spikes, = sim.loadspikes('spikesE.txt')
+    # Load spikes
+    filename = 'spikesE.txt'
+    print("Loading spike times from " + filename)
+    spikes = np.loadtxt(filename)
 
     import matplotlib.pyplot as plt
 
