@@ -5,6 +5,8 @@ X.-J. Wang, Neuron 2002.
 http://dx.doi.org/10.1016/S0896-6273(02)01092-9
 
 """
+from collections import OrderedDict
+
 import random as pyrand # Import before Brian floods the namespace
 
 # Once your code is working, turn units off for speed
@@ -194,8 +196,8 @@ class Model(NetworkOperation):
         # Neuron populations
         #---------------------------------------------------------------------------------
 
-        net = {} # Network objects
-        exc = {} # Excitatory subpopulations
+        net = OrderedDict() # Network objects
+        exc = OrderedDict() # Excitatory subpopulations
 
         # E/I populations
         for x in ['E', 'I']:
@@ -260,7 +262,7 @@ class Model(NetworkOperation):
         # Record spikes
         #---------------------------------------------------------------------------------
 
-        mons = {}
+        mons = OrderedDict()
         for x in ['E', 'I']:
             mons['sm'+x] = SpikeMonitor(net[x], record=True)
 
