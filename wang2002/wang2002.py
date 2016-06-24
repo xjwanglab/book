@@ -202,7 +202,7 @@ class Model(NetworkOperation):
                                  reset=params['Vreset'],
                                  refractory=params['tau_ref_'+x],
                                  clock=clock,
-                                 order=2, compile=True, freeze=True)
+                                 order=2, freeze=True)
 
         # Excitatory subpopulations
         for x in xrange(3):
