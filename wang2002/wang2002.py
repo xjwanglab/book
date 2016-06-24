@@ -285,7 +285,7 @@ class Model(NetworkOperation):
         for n in self.net.values():
             n.reinit()
 
-        # Randomly intialize membrane potential
+        # Randomly initialize membrane potentials
         for x in ['E', 'I']:
             self.net[x].V = np.random.uniform(self.params['Vreset'], self.params['Vth'],
                                               size=self.params['N_'+x])
