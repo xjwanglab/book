@@ -228,6 +228,25 @@ class Model(NetworkOperation):
         net['icNMDA'] = IdentityConnection(net['E'], net['E'], 'x',     delay=delay)
         net['icGABA'] = IdentityConnection(net['I'], net['I'], 'sGABA', delay=delay)
 
+        @network_operation(when='start', clock=clock)
+        def recurrent_input():
+            # AMPA
+            S = self.W.dot([self.exc[i].sAMPA.sum() for i in xrange(3)])
+            for i in xrange(3):
+                self.exc[i].S_AMPA = S[i]
+            self.net['I'].S_AMPA = S[0]
+
+            # NMDA
+            S = self.W.dot([self.exc[i].sNMDA.sum() for i in xrange(3)])
+            for i in xrange(3):
+                self.exc[i].S_NMDA = S[i]
+            self.net['I'].S_NMDA = S[0]
+
+            # GABA
+            S = self.net['I'].sGABA.sum()
+            self.net['E'].S_GABA = S
+            self.net['I'].S_GABA = S
+
         #---------------------------------------------------------------------------------
         # External input (post-synaptic)
         #---------------------------------------------------------------------------------
@@ -256,29 +275,7 @@ class Model(NetworkOperation):
 
         # Add network objects and monitors to NetworkOperation's contained_objects
         self.contained_objects += self.net.values() + self.mons.values()
-        self.contained_objects += [self.get_recurrent_input()]
-
-    def get_recurrent_input(self):
-        @network_operation(when='start', clock=self.clock)
-        def recurrent_input():
-            # AMPA
-            S = self.W.dot([self.exc[i].sAMPA.sum() for i in xrange(3)])
-            for i in xrange(3):
-                self.exc[i].S_AMPA = S[i]
-            self.net['I'].S_AMPA = S[0]
-
-            # NMDA
-            S = self.W.dot([self.exc[i].sNMDA.sum() for i in xrange(3)])
-            for i in xrange(3):
-                self.exc[i].S_NMDA = S[i]
-            self.net['I'].S_NMDA = S[0]
-
-            # GABA
-            S = self.net['I'].sGABA.sum()
-            self.net['E'].S_GABA = S
-            self.net['I'].S_GABA = S
-
-        return recurrent_input
+        self.contained_objects += [recurrent_input]
 
     def reinit(self):
         # Reset network components
