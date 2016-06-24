@@ -115,8 +115,8 @@ modelparams = dict(
     nu_ext = 2.4*kHz,
 
     # Number of neurons
-    N_E  = 1600,
-    N_I  = 400,
+    N_E = 1600,
+    N_I = 400,
 
     # Fraction of selective neurons
     fsel = 0.15,
