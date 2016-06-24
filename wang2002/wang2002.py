@@ -6,23 +6,24 @@ http://dx.doi.org/10.1016/S0896-6273(02)01092-9
 
 """
 import random as pyrand # Import before Brian floods the namespace
+import brian_no_units
+from brian import *
 
-import brian as B
 from brian.network import network_operation
-from brian.globalprefs import *
+from brian.globalprefs import set_global_preferences
 
 import numpy as np
 
-def accelerate():
-    set_global_preferences(
-        useweave=True,
-        usecodegen=True,
-        usecodegenweave=True,
-        usecodegenstateupdate=True,
-        usenewpropagate=True,
-        usecodegenthreshold=True,
-        gcc_options=['-ffast-math', '-march=native']
-        )
+# Make Brian faster
+set_global_preferences(
+    useweave=True,
+    usecodegen=True,
+    usecodegenweave=True,
+    usecodegenstateupdate=True,
+    usenewpropagate=True,
+    usecodegenthreshold=True,
+    gcc_options=['-ffast-math', '-march=native']
+    )
 
 def savespikes(spikemonitor, filename):
     print("Saving spike times to " + filename)
@@ -75,52 +76,52 @@ equations = dict(
 
 modelparams = dict(
     # Common LIF
-    V_L    = -70*B.mV,
-    Vth    = -50*B.mV,
-    Vreset = -55*B.mV,
+    V_L    = -70*mV,
+    Vth    = -50*mV,
+    Vreset = -55*mV,
 
     # Excitatory LIF
-    gE        = 25*B.nS,
-    tau_m_E   = 20*B.ms,
-    tau_ref_E = 2*B.ms,
+    gE        = 25*nS,
+    tau_m_E   = 20*ms,
+    tau_ref_E = 2*ms,
 
     # Inhibitory LIF
-    gI        = 20*B.nS,
-    tau_m_I   = 10*B.ms,
-    tau_ref_I = 1*B.ms,
+    gI        = 20*nS,
+    tau_m_I   = 10*ms,
+    tau_ref_I = 1*ms,
 
     # Reversal potentials
-    V_E = 0*B.mV,
-    V_I = -70*B.mV,
+    V_E = 0*mV,
+    V_I = -70*mV,
 
     # NMDA nonlinearity
-    a = 0.062*B.mV**-1,
+    a = 0.062*mV**-1,
     b = 3.57,
 
     # Synaptic time constants
-    tauAMPA = 2*B.ms,
-    tau_x   = 2*B.ms,
-    tauNMDA = 100*B.ms,
-    alpha   = 0.5*B.kHz,
-    tauGABA = 5*B.ms,
-    delay   = 0.5*B.ms,
+    tauAMPA = 2*ms,
+    tau_x   = 2*ms,
+    tauNMDA = 100*ms,
+    alpha   = 0.5*kHz,
+    tauGABA = 5*ms,
+    delay   = 0.5*ms,
 
     # External synaptic conductances
-    gAMPA_ext_E = 2.1*B.nS,
-    gAMPA_ext_I = 1.62*B.nS,
+    gAMPA_ext_E = 2.1*nS,
+    gAMPA_ext_I = 1.62*nS,
 
     # Unscaled recurrent synaptic conductances (excitatory)
-    gAMPA_E = 80*B.nS,
-    gNMDA_E = 264*B.nS,
-    gGABA_E = 520*B.nS,
+    gAMPA_E = 80*nS,
+    gNMDA_E = 264*nS,
+    gGABA_E = 520*nS,
 
     # Unscaled recurrent synaptic conductances (inhibitory)
-    gAMPA_I = 64*B.nS,
-    gNMDA_I = 208*B.nS,
-    gGABA_I = 400*B.nS,
+    gAMPA_I = 64*nS,
+    gNMDA_I = 208*nS,
+    gGABA_I = 400*nS,
 
     # Background noise
-    nu_ext = 2.4*B.kHz,
+    nu_ext = 2.4*kHz,
 
     # Number of neurons
     N_E  = 1600,
@@ -152,7 +153,7 @@ class Stimulus(object):
             return self.mu0*(1 - self.coh/100)
         return 0
 
-class Model(B.NetworkOperation):
+class Model(NetworkOperation):
     def __init__(self, modelparams, stimparams, dt):
         #---------------------------------------------------------------------------------
         # Complete the model specification
@@ -196,7 +197,7 @@ class Model(B.NetworkOperation):
         # Clock
         #---------------------------------------------------------------------------------
 
-        clock = B.Clock(dt)
+        clock = Clock(dt)
         super(Model, self).__init__(clock=clock)
 
         #---------------------------------------------------------------------------------
@@ -207,8 +208,8 @@ class Model(B.NetworkOperation):
 
         # E/I populations
         for x in ['E', 'I']:
-            net[x] = B.NeuronGroup(params['N_'+x],
-                                 B.Equations(equations[x], **params),
+            net[x] = NeuronGroup(params['N_'+x],
+                                 Equations(equations[x], **params),
                                  threshold=params['Vth'],
                                  reset=params['Vreset'],
                                  refractory=params['tau_ref_'+x],
@@ -224,17 +225,17 @@ class Model(B.NetworkOperation):
         #---------------------------------------------------------------------------------
 
         for x in ['E', 'I']:
-            net['pg'+x] = B.PoissonGroup(params['N_'+x], params['nu_ext'], clock=clock)
-            net['ic'+x] = B.IdentityConnection(net['pg'+x], net[x], 'sAMPA_ext',
+            net['pg'+x] = PoissonGroup(params['N_'+x], params['nu_ext'], clock=clock)
+            net['ic'+x] = IdentityConnection(net['pg'+x], net[x], 'sAMPA_ext',
                                              delay=delay)
 
         #---------------------------------------------------------------------------------
         # Recurrent input (pre-synaptic)
         #---------------------------------------------------------------------------------
 
-        net['icAMPA'] = B.IdentityConnection(net['E'], net['E'], 'sAMPA', delay=delay)
-        net['icNMDA'] = B.IdentityConnection(net['E'], net['E'], 'x',     delay=delay)
-        net['icGABA'] = B.IdentityConnection(net['I'], net['I'], 'sGABA', delay=delay)
+        net['icAMPA'] = IdentityConnection(net['E'], net['E'], 'sAMPA', delay=delay)
+        net['icNMDA'] = IdentityConnection(net['E'], net['E'], 'x',     delay=delay)
+        net['icGABA'] = IdentityConnection(net['I'], net['I'], 'sGABA', delay=delay)
 
         #---------------------------------------------------------------------------------
         # External input (post-synaptic)
@@ -243,8 +244,8 @@ class Model(B.NetworkOperation):
         self.stimulus = Stimulus(stimparams['Ton'], stimparams['Toff'],
                                  stimparams['mu0'], stimparams['coh'])
         for i, stimulus in zip([1, 2], [self.stimulus.s1, self.stimulus.s2]):
-            net['pg'+str(i)] = B.PoissonGroup(params['N'+str(i)], stimulus, clock=clock)
-            net['ic'+str(i)] = B.IdentityConnection(net['pg'+str(i)], net[i],
+            net['pg'+str(i)] = PoissonGroup(params['N'+str(i)], stimulus, clock=clock)
+            net['ic'+str(i)] = IdentityConnection(net['pg'+str(i)], net[i],
                                                   'sAMPA_ext', delay=delay)
 
         #---------------------------------------------------------------------------------
@@ -252,7 +253,7 @@ class Model(B.NetworkOperation):
         #---------------------------------------------------------------------------------
 
         for x in ['E', 'I']:
-            net['sm'+x] = B.SpikeMonitor(net[x], record=True)
+            net['sm'+x] = SpikeMonitor(net[x], record=True)
 
         #---------------------------------------------------------------------------------
         # Setup
@@ -260,6 +261,7 @@ class Model(B.NetworkOperation):
 
         self.params = params
         self.net    = net
+        # Add net items to NetworkOperation's contained_objects
         self.contained_objects += [v for k, v in self.net.items() if k not in xrange(3)]
         self.contained_objects += [self.get_recurrent_input()]
 
@@ -292,7 +294,7 @@ class Model(B.NetworkOperation):
 
         # Reset membrane potential
         for x in ['E', 'I']:
-            self.net[x].V = self.params['V_L']
+            self.net[x].V = np.random.uniform(self.params['Vreset'],self.params['Vth'],size=(self.params['N_'+x],))
 
         # Set synaptic variables to zero
         for x in ['sAMPA_ext', 'sAMPA', 'x', 'sNMDA']:
@@ -310,15 +312,12 @@ class Model(B.NetworkOperation):
 class Simulation(object):
     def __init__(self, modelparams, stimparams, dt):
         self.model   = Model(modelparams, stimparams, dt)
-        self.network = B.Network(self.model)
+        self.network = Network(self.model)
 
     def run(self, T, seed=1):
         # Initialize random number generators
         pyrand.seed(seed)
         np.random.seed(seed)
-
-        # Make Brian faster
-        accelerate()
 
         # Initialize the network and run
         self.model.reinit()
@@ -332,17 +331,17 @@ class Simulation(object):
 
 if __name__ == '__main__':
     stimparams = dict(
-        Ton  = 1*B.second,
-        Toff = 2*B.second,
-        mu0  = 40*B.Hz,
-        coh  = 6.4
+        Ton  = 0.5*second,
+        Toff = 1.5*second,
+        mu0  = 40*Hz,
+        coh  = 1.6
         )
 
-    dt = 0.02*B.ms
-    T  = 5*B.second
+    dt = 0.2*ms # For testing purpose, reducing dt to 0.2*ms
+    T  = 2.0*second
 
     sim = Simulation(modelparams, stimparams, dt)
-    sim.run(T)
+    sim.run(T, seed=1)
     sim.savespikes()
 
     #-------------------------------------------------------------------------------------
