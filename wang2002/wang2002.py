@@ -1,6 +1,6 @@
 """
 Probabilistic decision making by slow reverberation in cortical circuits.
-X.-J. Wang, Neuron 2002.
+X-J Wang, Neuron 2002.
 
 http://dx.doi.org/10.1016/S0896-6273(02)01092-9
 
