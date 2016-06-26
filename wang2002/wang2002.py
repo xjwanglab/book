@@ -265,7 +265,7 @@ class Model(NetworkOperation):
 
         mons = OrderedDict()
         for x in ['E', 'I']:
-            mons['sm'+x] = SpikeMonitor(net[x], record=True)
+            mons['spikes'+x] = SpikeMonitor(net[x], record=True)
 
         #---------------------------------------------------------------------------------
         # Setup
@@ -320,11 +320,11 @@ class Simulation(object):
 
     def savespikes(self, filename_exc, filename_inh):
         print("Saving excitatory spike times to " + filename_exc)
-        np.savetxt(filename_exc, self.model.mons['smE'].spikes, fmt='%-9d %25.18e',
+        np.savetxt(filename_exc, self.model.mons['spikesE'].spikes, fmt='%-9d %25.18e',
                    header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
 
         print("Saving inhibitory spike times to " + filename_inh)
-        np.savetxt(filename_inh, self.model.mons['smI'].spikes, fmt='%-9d %25.18e',
+        np.savetxt(filename_inh, self.model.mons['spikesI'].spikes, fmt='%-9d %25.18e',
                    header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
 
     def loadspikes(self, *args):

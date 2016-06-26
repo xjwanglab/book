@@ -6,5 +6,5 @@
 *.txt
 *.pdf
 *.egg-info/
-references/
+test/
 work/
