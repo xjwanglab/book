@@ -177,13 +177,10 @@ stimparams = dict(
 #=========================================================================================
 
 class Model(NetworkOperation):
-    def __init__(self, modelparams, stimparams, dt=0.02*ms, seed=123):
+    def __init__(self, modelparams, stimparams, dt=0.02*ms):
         #---------------------------------------------------------------------------------
         # Initialize
         #---------------------------------------------------------------------------------
-        # Initialize random number generators
-        pyrand.seed(seed)
-        np.random.seed(seed)
 
         # Create clocks
         clocks         = OrderedDict()
@@ -318,7 +315,11 @@ class Model(NetworkOperation):
         self.contained_objects += [recurrent_GABA,recurrent_NMDA]
         self.contained_objects += [stimulus]
 
-    def reinit(self):
+    def reinit(self, seed=123):
+        # Re-initialize random number generators
+        pyrand.seed(seed)
+        np.random.seed(seed)
+
         # Reset network components, monitors, and clocks
         for n in self.net.values() + self.mons.values() + self.clocks.values():
             n.reinit()
@@ -343,17 +344,17 @@ class Model(NetworkOperation):
 #/////////////////////////////////////////////////////////////////////////////////////////
 
 if __name__ == '__main__':
-    dt = 0.02*ms
+    dt = 0.2*ms
     T  = 3.0*second
     modelparams = 'murray'
     
     # Setup the network
-    model   = Model(modelparams, stimparams, dt, seed=1234)
+    model   = Model(modelparams, stimparams, dt)
     network = Network(model)
     
     # Setup the stimulus parameters for this trial (optional)
     model.stimparams['theta_stim']  = 180
-    model.reinit()
+    model.reinit(seed=1234)
     network.run(T, report='text')
     
     # Plot results
