@@ -1,8 +1,15 @@
 """
 Spatial working memory spiking neural circuit model
-A. Compte, N. Brunel, P. Goldman-Rakic, X.-J. Wang 2000
+
+References:
+J.D. Murray et al. Cerebral Cortex 2012
+doi: 10.1093/cercor/bhs370
+
+A. Compte, N. Brunel, P. Goldman-Rakic, X.-J. Wang Cerebral Cortex 2000
 doi: 10.1093/cercor/10.9.910
 
+Notice that with the Compte parameters, the spontaneous state takes ~10s
+to reach its actual steady-state around 8Hz (not 3.5Hz).
 """
 from __future__ import division
 from collections import OrderedDict
@@ -102,7 +109,7 @@ modelparams_common = dict(
     alpha   = 0.5*kHz,
     tauGABA = 10*ms)
 
-modelparams_compte2000 = dict(
+modelparams_compte = dict(
     # Unscaled recurrent synaptic conductances (excitatory)
     gAMPA_E = 0*nS,
     gNMDA_E = 0.381*2048*nS,
@@ -125,7 +132,7 @@ modelparams_compte2000 = dict(
     JEE_plus = 1.62
     )
 
-modelparams_murray2012 = dict(
+modelparams_murray = dict(
     # Unscaled recurrent synaptic conductances (excitatory)
     gAMPA_E = 0*nS,
     gNMDA_E = 1001.9*nS,
@@ -191,16 +198,16 @@ class Model(NetworkOperation):
         #---------------------------------------------------------------------------------
 
         # Model parameters
-        if isinstance(modelparams,str):
+        if isinstance(modelparams, str):
             params = modelparams_common.copy()
-            if modelparams == 'compte2000':
-                params.update(modelparams_compte2000)
-            elif modelparams == 'murray2012':
-                params.update(modelparams_murray2012)
-        elif isinstance(modelparams,dict):
+            if modelparams == 'compte':
+                params.update(modelparams_compte)
+            elif modelparams == 'murray':
+                params.update(modelparams_murray)
+        elif isinstance(modelparams, dict):
             params = modelparams.copy()
         else:
-            IOError('Unknown modelparams type')
+            raise ValueError('Unknown modelparams type')
 
         # Rescale conductances by number of neurons
         for conductance in ['gAMPA_E', 'gAMPA_I', 'gNMDA_E', 'gNMDA_I']:
@@ -338,9 +345,10 @@ class Model(NetworkOperation):
 if __name__ == '__main__':
     dt = 0.02*ms
     T  = 3.0*second
+    modelparams = 'murray'
     
     # Setup the network
-    model   = Model('murray2012', stimparams, dt, seed=1234)
+    model   = Model(modelparams, stimparams, dt, seed=1234)
     network = Network(model)
     
     # Setup the stimulus parameters for this trial (optional)
