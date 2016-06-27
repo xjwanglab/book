@@ -7,7 +7,7 @@ doi: 10.1093/cercor/10.9.910
 from __future__ import division
 from collections import OrderedDict
 from scipy.signal import fftconvolve
-
+import scipy.stats
 import random as pyrand # Import before Brian floods the namespace
 
 # Once your code is working, turn units off for speed
@@ -33,7 +33,7 @@ set_global_preferences(
 equations = dict(
     E = '''
     dV/dt         = (-(V - V_L) + Isyn/gE) / tau_m_E : mV
-    Isyn          = I_AMPA_ext + I_AMPA + I_NMDA + I_GABA + I_stim : pA
+    Isyn          = I_AMPA_ext + I_AMPA + I_NMDA + I_GABA + Istim : pA
     I_AMPA_ext    = -gAMPA_ext_E*sAMPA_ext*(V - V_E) : pA
     I_AMPA        = -gAMPA_E*S_AMPA*(V - V_E) : pA
     I_NMDA        = -gNMDA_E*S_NMDA*(V - V_E)/(1 + exp(-a*V)/b) : pA
@@ -45,7 +45,7 @@ equations = dict(
     S_AMPA : 1
     S_NMDA : 1
     S_GABA : 1
-    I_stim : pA
+    Istim  : pA
     ''',
 
     I = '''
@@ -148,18 +148,43 @@ modelparams_murray2012 = dict(
     JEE_plus = 3.0
     )
 
+#=========================================================================================
+# Stimulus Parameters
+#=========================================================================================
+
+stimparams = dict(
+    # Peak input strength
+    Ipeak         = 375*pA,
+
+    # Input width and location
+    sigma_stim    = 6.,
+    theta_stim    = 180.,
+
+    # Input onset and offset
+    Ton           = 500*ms,
+    Toff          = 750*ms
+    )
 
 #=========================================================================================
 # Model
 #=========================================================================================
 
 class Model(NetworkOperation):
-    def __init__(self, modelparams, clock):
+    def __init__(self, modelparams, stimparams, dt=0.02*ms, seed=123):
         #---------------------------------------------------------------------------------
         # Initialize
         #---------------------------------------------------------------------------------
+        # Initialize random number generators
+        pyrand.seed(seed)
+        np.random.seed(seed)
 
-        super(Model, self).__init__(clock=clock)
+        # Create clocks
+        clocks         = OrderedDict()
+        clocks['main'] = Clock(dt)
+        clocks['nmda'] = Clock(dt*10)  # NMDA update is less frequent
+        clocks['mons'] = Clock(1.0*ms)
+
+        super(Model, self).__init__(clock=clocks['main'])
 
         #---------------------------------------------------------------------------------
         # Complete the model specification
@@ -196,7 +221,7 @@ class Model(NetworkOperation):
                                  threshold=params['Vth'],
                                  reset=params['Vreset'],
                                  refractory=params['tau_ref_'+pop],
-                                 clock=clock,
+                                 clock=clocks['main'],
                                  order=1, freeze=True)
 
         #---------------------------------------------------------------------------------
@@ -204,93 +229,92 @@ class Model(NetworkOperation):
         #---------------------------------------------------------------------------------
 
         for pop in ['E', 'I']:
-            net['pg'+pop] = PoissonGroup(params['N_'+pop], params['nu_ext'], clock=clock)
+            net['pg'+pop] = PoissonGroup(params['N_'+pop], params['nu_ext'], clock=clocks['main'])
             net['ic'+pop] = IdentityConnection(net['pg'+pop], net[pop], 'sAMPA_ext')
 
         #---------------------------------------------------------------------------------
-        # Recurrent input (pre-synaptic)
+        # Recurrent connections
         #---------------------------------------------------------------------------------
 
+        # Presynaptic variables
         net['icAMPA'] = IdentityConnection(net['E'], net['E'], 'sAMPA')
         net['icNMDA'] = IdentityConnection(net['E'], net['E'], 'x')
         net['icGABA'] = IdentityConnection(net['I'], net['I'], 'sGABA')
 
-        JEE_plus = params['JEE_plus']
-        sigma_EE = params['sigma_EE']/360.*2*np.pi
+        # Recurrent NMDA connections
         N_E      = params['N_E']
+        JEE_plus = params['JEE_plus']
+        sigma_EE = deg2rad(params['sigma_EE'])
 
-        from scipy.stats import norm
-
-        temp = (2*norm.cdf(np.pi/sigma_EE)-1)/np.sqrt(2*np.pi)*sigma_EE
-        JEE_minus = (1-JEE_plus*temp)/(1-temp)
+        tmp = (2*scipy.stats.norm.cdf(np.pi/sigma_EE)-1)/np.sqrt(2*np.pi)*sigma_EE
+        JEE_minus = (1-JEE_plus*tmp)/(1-tmp)
 
         dtheta = 2*np.pi*((np.arange(N_E)+1)/N_E-0.5)
-        self.w = JEE_minus+((JEE_plus-JEE_minus)*
-                    np.exp(-dtheta**2/2/sigma_EE**2))
+        self.w = JEE_minus+((JEE_plus-JEE_minus)*np.exp(-dtheta**2/2./sigma_EE**2))
 
-        @network_operation(when='start', clock=clock)
-        def recurrent_input():
-            # NMDA. Do convolution (substantially speed up)
+        @network_operation(when='start', clock=clocks['nmda'])
+        def recurrent_NMDA():
             sNMDA = self.net['E'].sNMDA
             sNMDA_pad = np.concatenate((sNMDA[int(N_E/2):],sNMDA,sNMDA[:int(N_E/2)]))
+            # Convolution speeds up 2X
             self.net['E'].S_NMDA = fftconvolve(self.w, sNMDA_pad,'same')
             self.net['I'].S_NMDA = self.net['E'].sNMDA.sum()
 
-            # GABA
+        # Recurrent GABA connections
+        @network_operation(when='start', clock=clocks['main'])
+        def recurrent_GABA():
             S = self.net['I'].sGABA.sum()
             self.net['E'].S_GABA = S
             self.net['I'].S_GABA = S
 
+        #---------------------------------------------------------------------------------
+        # Stimulus
+        #---------------------------------------------------------------------------------
 
-        I_0 = 375*pA
-        sigma_stim = 6./360.*2*np.pi
-        theta_stim = 180./360.*2*np.pi
-        dtheta = theta_stim - np.arange(N_E)/N_E*2*np.pi
-        self.Istim0 = I_0*np.exp(-dtheta**2/2/sigma_stim**2)
-        self.Ton = 500*ms
-        self.Toff = 750*ms
-        clock_stim = Clock(50*ms)
-        @network_operation(when='start', clock=clock_stim)
-        def stim_input(clock_alpha):
-            t = clock_alpha.t
-            # Stimulus
-            if (t>=self.Ton) and (t<self.Toff):
-                self.net['E'].I_stim = self.Istim0
+        clocks['stim'] = Clock(10*ms)
+        @network_operation(when='start', clock=clocks['stim'])
+        def stimulus(clock):
+            t = clock.t
+            if self.stimparams['Ton'] <= t < self.stimparams['Toff']:
+                self.net['E'].Istim = self.Istim
             else:
-                self.net['E'].I_stim = 0
-        self.contained_objects += [stim_input]
+                self.net['E'].Istim = 0
+
         #---------------------------------------------------------------------------------
         # Record spikes
         #---------------------------------------------------------------------------------
 
-        self.clock_mon = Clock(0.4*ms)
         mons = OrderedDict()
+        var_list = ['S_AMPA', 'S_NMDA', 'S_GABA', 'V',
+                    'I_AMPA', 'I_NMDA', 'I_GABA', 'Isyn']
         for pop in ['E', 'I']:
             mons['spike'+pop] = SpikeMonitor(net[pop], record=True)
-            mons['pop'+pop] = PopulationRateMonitor(net[pop], bin=0.1)
-            for var in ['S_AMPA','S_NMDA','S_GABA', 'V', 'Isyn', 'I_AMPA', 'I_NMDA', 'I_GABA']:
-                mons[var+pop] = StateMonitor(net[pop], var, record=True, clock=self.clock_mon)
-                pass
+            mons['pop'+pop]   = PopulationRateMonitor(net[pop], bin=0.1)
+            for var in var_list:
+                mons[var+pop] = StateMonitor(net[pop], var, record=True, clock=clocks['mons'])
+
         pop = 'E'
-        for var in ['x','sNMDA','I_stim']:
-            mons[var+pop] = StateMonitor(net[pop], var, record=True, clock=self.clock_mon)
+        for var in ['x','sNMDA','Istim']:
+            mons[var+pop] = StateMonitor(net[pop], var, record=True, clock=clocks['mons'])
         #---------------------------------------------------------------------------------
         # Setup
         #---------------------------------------------------------------------------------
 
-        self.params = params
-        self.net    = net
-        self.mons   = mons
+        self.params     = params
+        self.stimparams = stimparams
+        self.net        = net
+        self.mons       = mons
+        self.clocks     = clocks
 
         # Add network objects and monitors to NetworkOperation's contained_objects
         self.contained_objects += self.net.values() + self.mons.values()
-        self.contained_objects += [recurrent_input]
+        self.contained_objects += [recurrent_GABA,recurrent_NMDA]
+        self.contained_objects += [stimulus]
 
     def reinit(self):
-        # Reset network components
-        for n in self.net.values() + self.mons.values():
+        # Reset network components, monitors, and clocks
+        for n in self.net.values() + self.mons.values() + self.clocks.values():
             n.reinit()
-
 
         # Randomly initialize membrane potentials
         for pop in ['E', 'I']:
@@ -303,94 +327,32 @@ class Model(NetworkOperation):
         for var in ['sAMPA_ext', 'sGABA']:
             setattr(self.net['I'], var, 0)
 
-#=========================================================================================
-# Simulation
-#=========================================================================================
+        # Set stimulus
+        N_E = self.params['N_E']
+        dtheta = stimparams['theta_stim'] - np.arange(N_E)/N_E*360.
+        self.Istim  = stimparams['Ipeak']*np.exp(-dtheta**2/2/stimparams['sigma_stim']**2)
 
-class Simulation(object):
-    def __init__(self, modelparams, dt):
-        self.clock    = Clock(dt)
-        self.model    = Model(modelparams, self.clock)
-        self.network  = Network(self.model)
-
-    def run(self, T, seed=1):
-        # Initialize random number generators
-        pyrand.seed(seed)
-        np.random.seed(seed)
-
-        # Initialize and run
-        self.clock.reinit()
-        self.model.reinit()
-        self.network.run(T, report='text')
-
-    def savespikes(self, filename_exc, filename_inh):
-        print("Saving excitatory spike times to " + filename_exc)
-        np.savetxt(filename_exc, self.model.mons['spikeE'].spikes, fmt='%-9d %25.18e',
-                   header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
-
-        print("Saving inhibitory spike times to " + filename_inh)
-        np.savetxt(filename_inh, self.model.mons['spikeI'].spikes, fmt='%-9d %25.18e',
-                   header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
-
-    def loadspikes(self, *args):
-        return [np.loadtxt(filename) for filename in args]
 
 #/////////////////////////////////////////////////////////////////////////////////////////
 
 if __name__ == '__main__':
     dt = 0.02*ms
-    T  = 2.0*second
-
-    sim = Simulation('murray2012', dt)
-    sim.run(T, seed=1234)
-#==============================================================================
-#     sim.savespikes('spikesE.txt', 'spikesI.txt')
-# 
-#     #-------------------------------------------------------------------------------------
-#     # Spike raster plot
-#     #-------------------------------------------------------------------------------------
-# 
-#     # Load excitatory spikes
-#     spikes, = sim.loadspikes('spikesE.txt')
-# 
-#     import matplotlib.pyplot as plt
-# 
-#     plt.figure()
-# 
-#     plt.plot(spikes[:,1], spikes[:,0], 'o', ms=2, mfc='k', mew=0)
-#     plt.xlabel('Time (s)')
-#     plt.ylabel('Neuron index')
-# 
-#     print("Saving raster plot to wang2002.pdf")
-#     plt.savefig('wang2002.pdf')
-#==============================================================================
-
-
-    model = sim.model
-    mons = model.mons
-    raster_plot(mons['spikeE'])
-    plt.figure()
-    plt.plot(mons['popE'].times,mons['popE'].rate)
-    plt.xlabel('Time (second)')
-    plt.ylabel('E population rate (sp/s)')
-    #plt.savefig('EPopulationRate_Murray2012.pdf')
+    T  = 3.0*second
     
-params = model.params
-JEE_plus = params['JEE_plus']
-sigma_EE = params['sigma_EE']/360.*2*np.pi
-N_E      = params['N_E']
-from scipy.stats import norm
-
-temp = (norm.cdf(np.pi/sigma_EE)-norm.cdf(-np.pi/sigma_EE))/np.sqrt(2*np.pi)*sigma_EE
-JEE_minus = (1-JEE_plus*temp)/(1-temp)
-Theta_to, Theta_from = np.mgrid[0:N_E,0:N_E]
-Theta_to = 2*np.pi*((Theta_to+0.5)/N_E-0.5)
-Theta_from = 2*np.pi*((Theta_from+0.5)/N_E-0.5)
-
-# Get the distance in periodic boundary conditions
-dtheta = Theta_to-Theta_from
-dtheta = np.minimum(abs(dtheta),2*np.pi-abs(dtheta))
-
-W = JEE_minus+((JEE_plus-JEE_minus)*
-                    np.exp(-dtheta**2/2/sigma_EE**2))
-                    
+    # Setup the network
+    model   = Model('murray2012', stimparams, dt, seed=1234)
+    network = Network(model)
+    
+    # Setup the stimulus parameters for this trial (optional)
+    model.stimparams['theta_stim']  = 180
+    model.reinit()
+    network.run(T, report='text')
+    
+    # Plot results
+    plt.figure()
+    spike_id, spike_time = zip(*model.mons['spikeE'].spikes)
+    plt.plot(spike_time, spike_id, 'o', ms=2, mfc='k', mew=0)
+    plt.ylim([min(spike_id),max(spike_id)])
+    plt.xlabel('Time (second)')
+    plt.ylabel('Neuron index')
+    plt.savefig('workingmemory_ringmodel.pdf')
