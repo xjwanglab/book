@@ -344,7 +344,7 @@ class Model(NetworkOperation):
 #/////////////////////////////////////////////////////////////////////////////////////////
 
 if __name__ == '__main__':
-    dt = 0.2*ms
+    dt = 0.02*ms
     T  = 3.0*second
     modelparams = 'murray'
     
