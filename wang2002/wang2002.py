@@ -29,6 +29,8 @@ set_global_preferences(
 # Equations
 #=========================================================================================
 
+# sAMPA, x, sNMDA, sGABA are synaptic conductance stored pre-synatically
+# S_AMPA, S_NMDA, S_GABA are synaptic conductance stored post-synaptically
 equations = dict(
     E = '''
     dV/dt         = (-(V - V_L) - Isyn/gE) / tau_m_E : mV
@@ -101,12 +103,12 @@ modelparams = dict(
     gAMPA_ext_E = 2.1*nS,
     gAMPA_ext_I = 1.62*nS,
 
-    # Unscaled recurrent synaptic conductances (excitatory)
+    # Unscaled recurrent synaptic conductances (onto excitatory)
     gAMPA_E = 80*nS,
     gNMDA_E = 264*nS,
     gGABA_E = 520*nS,
 
-    # Unscaled recurrent synaptic conductances (inhibitory)
+    # Unscaled recurrent synaptic conductances (onto inhibitory)
     gAMPA_I = 64*nS,
     gNMDA_I = 208*nS,
     gGABA_I = 400*nS,
@@ -186,7 +188,7 @@ class Model(NetworkOperation):
         wm = (1 - wp*fsel)/(1 - fsel)
         params['wm'] = wm
 
-        # Synaptic weights
+        # Synaptic weights between populations
         self.W = np.asarray([
             [1,  1,  1],
             [wm, wp, wm],
@@ -224,13 +226,15 @@ class Model(NetworkOperation):
                                              delay=delay)
 
         #---------------------------------------------------------------------------------
-        # Recurrent input (pre-synaptic)
+        # Recurrent input
         #---------------------------------------------------------------------------------
 
+        # Change pre-synaptic variables
         net['icAMPA'] = IdentityConnection(net['E'], net['E'], 'sAMPA', delay=delay)
         net['icNMDA'] = IdentityConnection(net['E'], net['E'], 'x',     delay=delay)
         net['icGABA'] = IdentityConnection(net['I'], net['I'], 'sGABA', delay=delay)
 
+        # Link pre-synaptic variables to post-synaptic variables
         @network_operation(when='start', clock=clock)
         def recurrent_input():
             # AMPA
