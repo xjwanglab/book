@@ -22,6 +22,10 @@ import random as pyrand # Import before Brian floods the namespace
 
 from brian import *
 
+# Notice scipy.fftpack.rfft behaves differently from numpy.fft.rfft
+from numpy.fft import rfft, irfft
+
+
 # Make Brian faster
 set_global_preferences(
     useweave=True,
@@ -253,16 +257,15 @@ class Model(NetworkOperation):
         tmp = (2*scipy.stats.norm.cdf(np.pi/sigma_EE)-1)/np.sqrt(2*np.pi)*sigma_EE
         JEE_minus = (1-JEE_plus*tmp)/(1-tmp)
 
-        dtheta = 2*np.pi*((np.arange(N_E)+1)/N_E-0.5)
-        self.w = JEE_minus+((JEE_plus-JEE_minus)*np.exp(-dtheta**2/2./sigma_EE**2))
+        dtheta = 2*np.pi*np.minimum(np.arange(N_E),N_E-np.arange(N_E))/N_E
+        w = (JEE_minus+(JEE_plus-JEE_minus)*np.exp(-0.5*dtheta**2/sigma_EE**2))
+        self.fw = rfft(w) # Fourier transform
 
         @network_operation(when='start', clock=clocks['nmda'])
         def recurrent_NMDA():
-            sNMDA = self.net['E'].sNMDA
-            sNMDA_pad = np.concatenate((sNMDA[int(N_E/2):],sNMDA,sNMDA[:int(N_E/2)]))
-            # Convolution speeds up 2X
-            self.net['E'].S_NMDA = fftconvolve(self.w, sNMDA_pad,'same')
-            self.net['I'].S_NMDA = self.net['E'].sNMDA.sum()
+            fsNMDA = rfft(self.net['E'].sNMDA)
+            self.net['E'].S_NMDA = irfft(self.fw * fsNMDA, N_E)
+            self.net['I'].S_NMDA = fsNMDA[0]
 
         # Recurrent GABA connections
         @network_operation(when='start', clock=clocks['main'])
