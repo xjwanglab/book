@@ -29,8 +29,8 @@ set_global_preferences(
 # Equations
 #=========================================================================================
 
-# sAMPA, x, sNMDA, sGABA are synaptic conductance stored pre-synatically
-# S_AMPA, S_NMDA, S_GABA are synaptic conductance stored post-synaptically
+# sAMPA, x, sNMDA, sGABA are synaptic conductances stored pre-synatically
+# S_AMPA, S_NMDA, S_GABA are synaptic conductances stored post-synaptically
 equations = dict(
     E = '''
     dV/dt         = (-(V - V_L) - Isyn/gE) / tau_m_E : mV
