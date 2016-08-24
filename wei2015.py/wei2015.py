@@ -527,7 +527,6 @@ class Stimulus(object):
 
     def s1(self, t):
         return self.pos*(self.Ton <= t < self.Toff)
-        ## what is returned when t<Ton?
 
     def s2(self, t):
         return self.neg*(self.Ton <= t < self.Toff)
