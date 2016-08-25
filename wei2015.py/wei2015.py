@@ -4,9 +4,13 @@ W Wei, JE Rubin, & X-J Wang, JNS 2015.
 
 http://dx.doi.org/10.1523/JNEUROSCI.3611-14.2015
 
+This example also demonstrates how to use Python's cPickle module to save and load
+complex data.
+
 """
 from __future__ import division
 
+import cPickle as pickle
 from collections import defaultdict, OrderedDict
 
 import random as pyrand # Import before Brian floods the namespace
@@ -33,8 +37,8 @@ set_global_preferences(
 # Equations
 #=========================================================================================
 
-# sAMPA, x, sNMDA, sGABA are synaptic conductance stored pre-synatically
-# S_AMPA, S_NMDA, S_GABA are synaptic conductance stored post-synaptically
+# sAMPA, x, sNMDA, sGABA are synaptic conductances stored pre-synatically
+# S_AMPA, S_NMDA, S_GABA are synaptic conductances stored post-synaptically
 
 equations = dict(
     E = '''
@@ -66,7 +70,7 @@ equations = dict(
     S_GABA: 1
     ''',
 
-    Striatum = '''
+    Str = '''
     dV/dt         = (-(V - V_L) - Isyn/gI) / tau_m_I : mV
     Isyn          = I_AMPA_ext + I_AMPA + I_GABA : pA
     I_AMPA_ext    = gAMPA_ext_I*sAMPA_ext*(V - V_E) : pA
@@ -229,7 +233,7 @@ modelparams['Cx'] = dict(
 
     )
 
-modelparams['Striatum'] = dict(
+modelparams['Str'] = dict(
     # Common LIF
     V_L    = -70*mV,
     Vth    = -50*mV,
@@ -263,7 +267,7 @@ modelparams['Striatum'] = dict(
     # scaled recurrent synaptic conductances (onto projection neurons)
     gAMPA_I = 3.0*nS, # from Cx
     gNMDA_I = 0.0*nS, # from Cx
-    gGABA_I = 1.0*nS, # from within Striatum
+    gGABA_I = 1.0*nS, # from within Str
 
 
     # Number of neurons
@@ -304,7 +308,7 @@ modelparams['SNr'] = dict(
     # scaled recurrent synaptic conductances (onto projection neurons)
     gAMPA_I = 0.0*nS,   # from STN
     gNMDA_I = 0.06*nS, # from STN
-    gGABA_I = 3.0*nS, # from Striatum
+    gGABA_I = 3.0*nS, # from Str
 
     gGABA_GPe_SNr=0.08*nS, # from GPe
      # Number of neurons
@@ -356,7 +360,7 @@ modelparams['GPe'] = dict(
     # scaled recurrent synaptic conductances (onto projection neurons)
     gAMPA_I = 0.05*nS, # from STN
     gNMDA_I = 2.0*nS, # from STN
-    gGABA_I = 4.0*nS,  # from Striatum
+    gGABA_I = 4.0*nS,  # from Str
 
     gGABA_GPe_GPe=1.5*nS,
 
@@ -367,7 +371,7 @@ modelparams['GPe'] = dict(
     # nu_ext_GABA = 2.0*kHz,
     # gAMPA_I = 0.05*nS, # from STN
     # gNMDA_I = 10.0*nS, # from STN
-    # gGABA_I = 4.0*nS,  # from Striatum
+    # gGABA_I = 4.0*nS,  # from Str
     # gGABA_GPe_GPe=0.02*nS,
 
 
@@ -424,9 +428,7 @@ modelparams['STN'] = dict(
 
     # Number of neurons
     N_PJ = 2500*2
-
     )
-
 
 modelparams['SCE'] = dict(
     # Common LIF
@@ -471,7 +473,6 @@ modelparams['SCE'] = dict(
     tauF = 1000*ms,
     # Number of neurons
     N_PJ = 250*2
-
     )
 
 modelparams['SCI'] = dict(
@@ -510,7 +511,6 @@ modelparams['SCI'] = dict(
     gGABA_I = 0.0*nS, # no recurrent SCI->SCI
     # Number of neurons
     N_PJ = 250
-
     )
 
 #=========================================================================================
@@ -603,7 +603,7 @@ class Model(NetworkOperation):
         for x in xrange(3):
             netPJsub['Cx'+str(x)] = net['CxE'].subgroup(params['Cx']['N'+str(x)])
 
-        for x in ['Striatum', 'SNr', 'GPe', 'STN', 'SCE', 'SCI']:
+        for x in ['Str', 'SNr', 'GPe', 'STN', 'SCE', 'SCI']:
             net[x] = NeuronGroup(params[x]['N_PJ'],
                                  Equations(equations[x], **params[x]),
                                  threshold=params[x]['Vth'],
@@ -623,7 +623,7 @@ class Model(NetworkOperation):
             net['pg'+x] = PoissonGroup(params['Cx']['N_'+x], params['Cx']['nu_ext'], clock=clock)
             net['ic'+x] = IdentityConnection(net['pg'+x], net['Cx'+x], 'sAMPA_ext', delay=delay)
 
-        for x in ['Striatum', 'SNr', 'STN', 'SCE','SCI']:
+        for x in ['Str', 'SNr', 'STN', 'SCE','SCI']:
             net['pg'+x] = PoissonGroup(params[x]['N_PJ'], params[x]['nu_ext'], clock=clock)
             net['ic'+x] = IdentityConnection(net['pg'+x], net[x], 'sAMPA_ext', delay=delay)
 
@@ -638,7 +638,7 @@ class Model(NetworkOperation):
 
         # Change pre-synaptic variables
 
-        for x in ['CxI', 'Striatum', 'SNr', 'GPe','SCI']:
+        for x in ['CxI', 'Str', 'SNr', 'GPe','SCI']:
             net['icGABA_'+x] = IdentityConnection(net[x], net[x], 'sGABA', delay=delay)
 
 
@@ -698,7 +698,7 @@ class Model(NetworkOperation):
                     SAMPA[i][x] = self.netPJsub[x+i].sAMPA.sum()
                     SNMDA[i][x] = self.netPJsub[x+i].sNMDA.sum()
 
-            for x in ['Striatum', 'SNr', 'GPe']:
+            for x in ['Str', 'SNr', 'GPe']:
                 for i in ['1','2']:
                     SGABA[i][x] = self.netPJsub[x+i].sGABA.sum()
 
@@ -731,21 +731,20 @@ class Model(NetworkOperation):
             	SNMDA[i]['SCE_F']=dot(self.netPJsub['SCE'+i].F, self.netPJsub['SCE'+i].sNMDA)
 
                 self.netPJsub['Cx'+i].S_NMDA += self.wNMDA_SCE_CxE*(SNMDA['1']['SCE']+SNMDA['2']['SCE'])
-                # Striatum:
-                self.netPJsub['Striatum'+i].S_AMPA = SAMPA[i]['Cx']
-                #self.netPJsub['Striatum'+i].S_NMDA = 0
-                self.netPJsub['Striatum'+i].S_GABA = SGABA[i]['Striatum']
+                # Str:
+                self.netPJsub['Str'+i].S_AMPA = SAMPA[i]['Cx']
+                self.netPJsub['Str'+i].S_GABA = SGABA[i]['Str']
 
                 # SNr:
                 #self.netPJsub['SNr'+i].S_AMPA = 0
                 self.netPJsub['SNr'+i].S_NMDA = SNMDA[i]['STN']
-                self.netPJsub['SNr'+i].S_GABA = SGABA[i]['Striatum'] + self.wGABA_GPe_SNr*SGABA[i]['GPe']
+                self.netPJsub['SNr'+i].S_GABA = SGABA[i]['Str'] + self.wGABA_GPe_SNr*SGABA[i]['GPe']
 
 
                 # GPe:
                 self.netPJsub['GPe'+i].S_AMPA = self.sconn_STN_GPe.dot(self.netPJsub['STN'+i].sAMPA)
                 self.netPJsub['GPe'+i].S_NMDA = self.sconn_STN_GPe.dot(self.netPJsub['STN'+i].sNMDA)
-                self.netPJsub['GPe'+i].S_GABA = self.sconn_GPe_GPe.dot(self.netPJsub['GPe'+i].sGABA)*self.wGABA_GPe_GPe + SGABA[i]['Striatum']
+                self.netPJsub['GPe'+i].S_GABA = self.sconn_GPe_GPe.dot(self.netPJsub['GPe'+i].sGABA)*self.wGABA_GPe_GPe + SGABA[i]['Str']
                 # STN:
                 self.netPJsub['STN'+i].S_GABA = self.sconn_GPe_STN.dot(self.netPJsub['GPe'+i].sGABA)
 
@@ -754,9 +753,6 @@ class Model(NetworkOperation):
                 self.netPJsub['SCE'+i].S_NMDA = SNMDA[i]['SCE']
                 self.netPJsub['SCE'+i].S_GABA = SGABA[i]['SNr']+ self.wGABA_SCI_SCE*SGABA['SCI']
             self.net['SCI'].S_NMDA = SNMDA['1']['SCE_F']+SNMDA['2']['SCE_F']
-
-
-
 
         #---------------------------------------------------------------------------------
         # External input (post-synaptic)
@@ -772,7 +768,7 @@ class Model(NetworkOperation):
         #---------------------------------------------------------------------------------
 
         rates = OrderedDict()
-        for x in netPJsub.keys():# Cx0 Cx1 Cx2 Striatum1 Striatum2 SNr1 SNr2 GPe1 GPe2 STN1 STN2 Th1 Th2
+        for x in netPJsub.keys():# Cx0 Cx1 Cx2 Str1 Str2 SNr1 SNr2 GPe1 GPe2 STN1 STN2 Th1 Th2
             rates[x] = PopulationRateMonitor(netPJsub[x], bin=2*ms)
 
         #---------------------------------------------------------------------------------
@@ -799,7 +795,7 @@ class Model(NetworkOperation):
         for x in ['E', 'I']:
             self.net['Cx'+x].V = np.random.uniform(self.params['Cx']['Vreset'], self.params['Cx']['Vth'],
                                               size=self.params['Cx']['N_'+x])
-        for x in ['Striatum', 'SNr', 'GPe', 'STN', 'SCE', 'SCI']:
+        for x in ['Str', 'SNr', 'GPe', 'STN', 'SCE', 'SCI']:
             self.net[x].V = np.random.uniform(self.params[x]['Vreset'], self.params[x]['Vth'],
                                               size=self.params[x]['N_PJ'])
 
@@ -807,7 +803,7 @@ class Model(NetworkOperation):
         for i in ['CxE', 'STN']:
             for x in ['sAMPA_ext', 'sAMPA', 'sNMDA']:
                 setattr(self.net[i], x, 0)
-        for i in ['CxI', 'Striatum', 'SNr', 'SCI']:
+        for i in ['CxI', 'Str', 'SNr', 'SCI']:
             for x in ['sAMPA_ext', 'sGABA']:
                 setattr(self.net[i], x, 0)
         for x in ['sAMPA_ext', 'sNMDA']:
@@ -840,17 +836,15 @@ class Simulation(object):
         self.model.reinit()
         self.network.run(T, report='text')
 
-    def saverates(self, filename):
-        np.savetxt(filename, np.column_stack((
-        	self.model.rates['Cx1'].times / ms,
-            self.model.rates['Cx1'].smooth_rate(10 * ms),      self.model.rates['Cx2'].smooth_rate(10 * ms),
-            self.model.rates['Striatum1'].smooth_rate(10 * ms),self.model.rates['Striatum2'].smooth_rate(10 * ms),
-            self.model.rates['SNr1'].smooth_rate(10 * ms),     self.model.rates['SNr2'].smooth_rate(10 * ms),
-            self.model.rates['GPe1'].smooth_rate(10 * ms),     self.model.rates['GPe2'].smooth_rate(10 * ms),
-            self.model.rates['STN1'].smooth_rate(10 * ms),     self.model.rates['STN2'].smooth_rate(10 * ms),
-            self.model.rates['SCE1'].smooth_rate(10 * ms),      self.model.rates['SCE2'].smooth_rate(10 * ms))),
-            fmt='%10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f %10.8f',
-            delimiter=' ', newline='\n')
+    def saverates(self, filename, smooth=10*ms):
+        time  = self.model.rates['Cx1'].times/ms
+        rates = {}
+        for name in ['Cx', 'Str', 'SNr', 'GPe', 'STN', 'SCE']:
+            rates[name+'1'] = self.model.rates[name+'1'].smooth_rate(smooth)/Hz
+            rates[name+'2'] = self.model.rates[name+'2'].smooth_rate(smooth)/Hz
+
+        with open(filename, 'wb') as f:
+            pickle.dump((time, rates), f)
 
 #/////////////////////////////////////////////////////////////////////////////////////////
 
@@ -865,20 +859,21 @@ if __name__ == '__main__':
     dt = 0.05*ms
     T  = 2*second
 
-    #sim = Simulation(modelparams, stimparams, dt)
-    #sim.stimulus.set_coh(25.6) # Shows how coherence can be changed
-    #sim.run(T, seed=10)
-    #sim.saverates('rates_Cx_BG_SC.txt')
+    sim = Simulation(modelparams, stimparams, dt)
+    sim.stimulus.set_coh(25.6) # Shows how coherence can be changed
+    sim.run(T, seed=10)
+    sim.saverates('rates.pkl')
 
     #-------------------------------------------------------------------------------------
     # Plot firing rates in different areas
     #-------------------------------------------------------------------------------------
 
     # Load firing rates
-    rates = np.loadtxt('rates_Cx_BG_SC.txt')
+    with open('rates.pkl') as f:
+        time, rates = pickle.load(f)
 
     # Align time to stimulus onset
-    time = rates[:,0] - stimparams['Ton']/ms
+    time -= stimparams['Ton']/ms
 
     import matplotlib.pyplot as plt
 
@@ -897,7 +892,7 @@ if __name__ == '__main__':
     plots = {
         'GPe': fig.add_axes([x1, y1, w, h]),
         'STN': fig.add_axes([x2, y1, w, h]),
-        'SC':  fig.add_axes([x3, y1, w, h]),
+        'SCE': fig.add_axes([x3, y1, w, h]),
         'Cx':  fig.add_axes([x1, y2, w, h]),
         'Str': fig.add_axes([x2, y2, w, h]),
         'SNr': fig.add_axes([x3, y2, w, h])
@@ -907,39 +902,18 @@ if __name__ == '__main__':
     plots['GPe'].set_xlabel('Time from stimulus (ms)')
     plots['GPe'].set_ylabel('Firing rate (Hz)')
 
-    plot = plots['Cx']
-    plot.plot(time, rates[:,1], 'g', zorder=5)
-    plot.plot(time, rates[:,2], 'b', zorder=5)
-    plot.set_ylim(0, 20)
-
-    plot = plots['Str']
-    plot.plot(time, rates[:,3], 'g', zorder=5)
-    plot.plot(time, rates[:,4], 'b', zorder=5)
-    plot.set_ylim(0, 35)
-
-    plot = plots['SNr']
-    plot.plot(time, rates[:,5], 'g', zorder=5)
-    plot.plot(time, rates[:,6], 'b', zorder=5)
-    plot.set_ylim(0, 150)
-
-    plot = plots['GPe']
-    plot.plot(time, rates[:,7], 'g', zorder=5)
-    plot.plot(time, rates[:,8], 'b', zorder=5)
-    plot.set_ylim(0, 100)
-
-    plot = plots['STN']
-    plot.plot(time, rates[:,9], 'g', zorder=5)
-    plot.plot(time, rates[:,10], 'b', zorder=5)
-    plot.set_ylim(0, 100)
-
-    plot = plots['SC']
-    plot.plot(time, rates[:,11], 'g', zorder=5)
-    plot.plot(time, rates[:,12], 'b', zorder=5)
-    plot.set_ylim(0, 250)
-
     for name, plot in plots.items():
+        plot.plot(time, rates[name+'1'], 'g', zorder=5)
+        plot.plot(time, rates[name+'2'], 'b', zorder=5)
         plot.set_xlim(-100, 700)
         plot.set_xticks([0, 500])
+
+    plots['Cx'].set_ylim(0, 20)
+    plots['Str'].set_ylim(0, 35)
+    plots['SNr'].set_ylim(0, 150)
+    plots['GPe'].set_ylim(0, 100)
+    plots['STN'].set_ylim(0, 100)
+    plots['SCE'].set_ylim(0, 250)
 
     print("Saving plot to wei2015.pdf")
     plt.savefig('wei2015.pdf')
