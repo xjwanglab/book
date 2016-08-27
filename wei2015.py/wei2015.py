@@ -364,20 +364,8 @@ modelparams['GPe'] = dict(
 
     gGABA_GPe_GPe=1.5*nS,
 
-    # for beta oscillation:
-    # gAMPA_ext_I = 1.6*nS,
-    # nu_ext_AMPA = 4.0*kHz,
-    # gGABA_ext_I = 22.0*nS,
-    # nu_ext_GABA = 2.0*kHz,
-    # gAMPA_I = 0.05*nS, # from STN
-    # gNMDA_I = 10.0*nS, # from STN
-    # gGABA_I = 4.0*nS,  # from Str
-    # gGABA_GPe_GPe=0.02*nS,
-
-
     # Number of neurons
-    N_PJ = 2500*2,
-
+    N_PJ = 2500*2
     )
 
 modelparams['STN'] = dict(
@@ -414,17 +402,12 @@ modelparams['STN'] = dict(
 
     # External synaptic conductances
     gAMPA_ext_E = 1.6*nS,
+
     # Background Possion rate
     nu_ext = 4.0*kHz,
 
     # scaled recurrent synaptic conductances (onto projection neurons)
     gGABA_E = 0.6*nS, # from GPe
-
-    # for beta oscillation:
-    # gAMPA_ext_E = 1.0*nS,
-    # nu_ext = 3.2*kHz,
-    # gGABA_E = 10.0*nS, # from GPe
-
 
     # Number of neurons
     N_PJ = 2500*2
@@ -457,9 +440,9 @@ modelparams['SCE'] = dict(
 
     # External synaptic conductances
     gAMPA_ext_E = 0.19*nS,
+
     # Background Possion rate
     nu_ext = 1.28*kHz,
-
 
     # scaled recurrent synaptic conductances (onto projection neurons)
     gAMPA_E = 3.5*nS, # from Cx
@@ -467,10 +450,10 @@ modelparams['SCE'] = dict(
     gNMDA_E = 1.5*nS, # from SCE to SCE
     gGABA_SCI_SCE = 2.5*nS, # from SCI to SCE
 
-
     #STF parameter
     alpha_F  = 0.15,
     tauF = 1000*ms,
+
     # Number of neurons
     N_PJ = 250*2
     )
@@ -501,14 +484,15 @@ modelparams['SCI'] = dict(
 
     # External synaptic conductances
     gAMPA_ext_I = 2.0*nS,
+
     # Background Possion rate
     nu_ext = 1.28*kHz,
-
 
     # scaled recurrent synaptic conductances (onto projection neurons)
     gAMPA_I = 0.0*nS, # from SCE
     gNMDA_I = 0.7*nS, # from SCE
     gGABA_I = 0.0*nS, # no recurrent SCI->SCI
+
     # Number of neurons
     N_PJ = 250
     )
@@ -576,8 +560,6 @@ class Model(NetworkOperation):
         params['Cx']['wm'] = wm
 
         # Synaptic weights between populations
-        # these are connection weights among N0, N1, N2; the NI is not included here
-        # Between two different selective populations, and from the nonselective population to selective ones, wm
         self.W = np.asarray([
             [1,  1,  1],
             [wm, wp, wm],
@@ -641,14 +623,11 @@ class Model(NetworkOperation):
         for x in ['CxI', 'Str', 'SNr', 'GPe','SCI']:
             net['icGABA_'+x] = IdentityConnection(net[x], net[x], 'sGABA', delay=delay)
 
-
-        #net['icAMPA_STN'] = IdentityConnection(net['STN'], net['STN'], 'sAMPA', delay=delay)
         for x in ['CxE', 'STN']:
             net['icAMPA_NMDA_'+x] = Synapses(net[x], pre='''sAMPA+=1
                                                             sNMDA+=alpha*(1-sNMDA)''')
             net['icAMPA_NMDA_'+x].delay=delay
             net['icAMPA_NMDA_'+x].connect_one_to_one(net[x], net[x])
-
 
         # SCE
         alpha_F=params['SCE']['alpha_F']
@@ -685,14 +664,7 @@ class Model(NetworkOperation):
             SAMPA = defaultdict(dict)
             SNMDA = defaultdict(dict)
             SGABA = defaultdict(dict)
-            # SAMPA = dict()
-            # SNMDA = dict()
-            # SGABA = dict()
-            # for i in ['1','2']:
-            # 	SAMPA[i] = dict()
-            # 	SNMDA[i] = dict()
-            # 	SGABA[i] = dict()
-            # above seems not good. what is needed here is a
+
             for x in ['Cx', 'STN']:
                 for i in ['1','2']:
                     SAMPA[i][x] = self.netPJsub[x+i].sAMPA.sum()
@@ -724,7 +696,6 @@ class Model(NetworkOperation):
             S = self.net['CxI'].sGABA.sum()
             self.net['CxE'].S_GABA = S
             self.net['CxI'].S_GABA = S
-
 
             for i in ['1','2']:
                 # for SCE->SCI
@@ -782,10 +753,9 @@ class Model(NetworkOperation):
         self.rates    = rates
 
         # Add network objects and monitors to NetworkOperation's contained_objects
-        ## Here the key is E and I, values give the neurongroup objects.
         self.contained_objects += self.net.values() + self.rates.values()
         self.contained_objects += [recurrent_input]
-        ## what does the [] do?
+
     def reinit(self):
         # Reset network components
         for n in self.net.values() + self.rates.values():
