@@ -82,7 +82,6 @@ equations = dict(
     S_GABA: 1
     ''',
 
-
     GPe = '''
     dV/dt         = (-(V - V_L) - I_T/gI - Isyn/gI) / tau_m_I : mV
     Isyn          = I_AMPA_ext + I_GABA_ext + I_AMPA + I_NMDA + I_GABA : pA
@@ -155,8 +154,9 @@ equations = dict(
 #=========================================================================================
 # Parameters
 #=========================================================================================
-# here will add parameters for BG and Th.
-modelparams = dict()
+
+modelparams = {}
+
 modelparams['Cx'] = dict(
     # Common LIF
     V_L    = -70*mV,
@@ -189,31 +189,18 @@ modelparams['Cx'] = dict(
     delay   = 0.2*ms,
 
     # External synaptic conductances
-    gAMPA_ext_E = 2.1*nS,
-    # this will be reduced to 2.0 to make the Cx recurrent connection not enough to support persisten activity
+    gAMPA_ext_E = 2.1*nS, # This will be reduced to 2.0 to make the Cx recurrent connection not enough to support persisten activity
     gAMPA_ext_I = 1.62*nS,
 
-    # scaled recurrent synaptic conductances (onto excitatory), divided by N_E=1600
-    #gAMPA_E = 0.05*nS,
-    #gNMDA_E = 0.165*nS,
-    #gGABA_E = 0.325*nS,
-
-    #Unscaled recurrent synaptic conductances (onto excitatory)
+    # Unscaled recurrent synaptic conductances (onto excitatory)
     gAMPA_E = 80.0*nS,
     gNMDA_E = 264.0*nS,
     gGABA_E = 520.0*nS,
-
 
     # Unscaled recurrent synaptic conductances (onto inhibitory)
     gAMPA_I = 64*nS,
     gNMDA_I = 208*nS,
     gGABA_I = 400*nS,
-
-    # scaled recurrent synaptic conductances (onto inhibitory)
-    #gAMPA_I = 0.04*nS,
-    #gNMDA_I = 0.13*nS,
-    #gGABA_I = 1*nS,
-
 
     # Background noise
     nu_ext = 2.4*kHz,
@@ -228,9 +215,8 @@ modelparams['Cx'] = dict(
     # Hebb-strengthened weight
     wp = 1.7,
 
-    gNMDA_SCE_CxE = 0.05*nS, # from SCE to CxE
-    gNMDA_SCE_CxI = 0.15*nS, # from SCE to CxE
-
+    gNMDA_SCE_CxE = 0.05*nS, # From SCE to CxE
+    gNMDA_SCE_CxI = 0.15*nS  # From SCE to CxE
     )
 
 modelparams['Str'] = dict(
@@ -263,16 +249,13 @@ modelparams['Str'] = dict(
     # Background Possion rate
     nu_ext = 0.8*kHz,
 
-
-    # scaled recurrent synaptic conductances (onto projection neurons)
-    gAMPA_I = 3.0*nS, # from Cx
-    gNMDA_I = 0.0*nS, # from Cx
-    gGABA_I = 1.0*nS, # from within Str
-
+    # Scaled recurrent synaptic conductances (onto projection neurons)
+    gAMPA_I = 3.0*nS, # From Cx
+    gNMDA_I = 0.0*nS, # From Cx
+    gGABA_I = 1.0*nS, # From within Str
 
     # Number of neurons
     N_PJ = 250*2
-
     )
 
 modelparams['SNr'] = dict(
@@ -301,19 +284,19 @@ modelparams['SNr'] = dict(
 
     # External synaptic conductances
     gAMPA_ext_I = 14*nS,
+
     # Background Possion rate
     nu_ext = 0.8*kHz,
 
-
     # scaled recurrent synaptic conductances (onto projection neurons)
-    gAMPA_I = 0.0*nS,   # from STN
-    gNMDA_I = 0.06*nS, # from STN
-    gGABA_I = 3.0*nS, # from Str
+    gAMPA_I = 0.0*nS,  # From STN
+    gNMDA_I = 0.06*nS, # From STN
+    gGABA_I = 3.0*nS,  # From Str
 
     gGABA_GPe_SNr=0.08*nS, # from GPe
+
      # Number of neurons
     N_PJ = 250*2
-
     )
 
 modelparams['GPe'] = dict(
@@ -349,18 +332,20 @@ modelparams['GPe'] = dict(
 
     # External synaptic conductances
     gAMPA_ext_I = 3.0*nS,
+
     # Background Possion rate
     nu_ext_AMPA = 3.2*kHz,
 
-   # External synaptic conductances
+    # External synaptic conductances
     gGABA_ext_I = 2.0*nS,
+
     # Background Possion rate
     nu_ext_GABA = 2.0*kHz,
 
     # scaled recurrent synaptic conductances (onto projection neurons)
-    gAMPA_I = 0.05*nS, # from STN
-    gNMDA_I = 2.0*nS, # from STN
-    gGABA_I = 4.0*nS,  # from Str
+    gAMPA_I = 0.05*nS, # From STN
+    gNMDA_I = 2.0*nS,  # From STN
+    gGABA_I = 4.0*nS,  # From Str
 
     gGABA_GPe_GPe=1.5*nS,
 
@@ -406,8 +391,8 @@ modelparams['STN'] = dict(
     # Background Possion rate
     nu_ext = 4.0*kHz,
 
-    # scaled recurrent synaptic conductances (onto projection neurons)
-    gGABA_E = 0.6*nS, # from GPe
+    # Scaled recurrent synaptic conductances (onto projection neurons)
+    gGABA_E = 0.6*nS, # From GPe
 
     # Number of neurons
     N_PJ = 2500*2
@@ -444,15 +429,15 @@ modelparams['SCE'] = dict(
     # Background Possion rate
     nu_ext = 1.28*kHz,
 
-    # scaled recurrent synaptic conductances (onto projection neurons)
-    gAMPA_E = 3.5*nS, # from Cx
-    gGABA_E = 2.5*nS, # from SNr
-    gNMDA_E = 1.5*nS, # from SCE to SCE
-    gGABA_SCI_SCE = 2.5*nS, # from SCI to SCE
+    # Scaled recurrent synaptic conductances (onto projection neurons)
+    gAMPA_E = 3.5*nS,       # From Cx
+    gGABA_E = 2.5*nS,       # From SNr
+    gNMDA_E = 1.5*nS,       # From SCE to SCE
+    gGABA_SCI_SCE = 2.5*nS, # From SCI to SCE
 
-    #STF parameter
-    alpha_F  = 0.15,
-    tauF = 1000*ms,
+    # STF parameter
+    alpha_F = 0.15,
+    tauF    = 1000*ms,
 
     # Number of neurons
     N_PJ = 250*2
@@ -489,9 +474,9 @@ modelparams['SCI'] = dict(
     nu_ext = 1.28*kHz,
 
     # scaled recurrent synaptic conductances (onto projection neurons)
-    gAMPA_I = 0.0*nS, # from SCE
-    gNMDA_I = 0.7*nS, # from SCE
-    gGABA_I = 0.0*nS, # no recurrent SCI->SCI
+    gAMPA_I = 0.0*nS, # From SCE
+    gNMDA_I = 0.7*nS, # From SCE
+    gGABA_I = 0.0*nS, # No recurrent SCI -> SCI
 
     # Number of neurons
     N_PJ = 250
@@ -570,8 +555,8 @@ class Model(NetworkOperation):
         # Neuron populations
         #---------------------------------------------------------------------------------
 
-        net = OrderedDict() # Network objects
-        netPJsub = OrderedDict() # projection neuron subpopulations
+        net      = OrderedDict() # Network objects
+        netPJsub = OrderedDict() # Projection neuron subpopulations
 
         for x in ['E', 'I']:
             net['Cx'+x] = NeuronGroup(params['Cx']['N_'+x],
@@ -619,10 +604,8 @@ class Model(NetworkOperation):
         #---------------------------------------------------------------------------------
 
         # Change pre-synaptic variables
-
         for x in ['CxI', 'Str', 'SNr', 'GPe','SCI']:
             net['icGABA_'+x] = IdentityConnection(net[x], net[x], 'sGABA', delay=delay)
-
         for x in ['CxE', 'STN']:
             net['icAMPA_NMDA_'+x] = Synapses(net[x], pre='''sAMPA+=1
                                                             sNMDA+=alpha*(1-sNMDA)''')
@@ -642,8 +625,10 @@ class Model(NetworkOperation):
         prob_STN_GPe=0.05  # STN to GPe
 
         N_PJ1=params['GPe']['N_PJ']//2
+
         # here the seed 100 is choosed arbitarily
-        rns=np.random.RandomState(100)
+        rns = np.random.RandomState(100)
+
         conn_GPe_GPe = 1*(rns.random_sample((N_PJ1,N_PJ1))<prob_GPe_GPe)
         conn_GPe_STN = 1*(rns.random_sample((N_PJ1,N_PJ1))<prob_GPe_STN)
         conn_STN_GPe = 1*(rns.random_sample((N_PJ1,N_PJ1))<prob_STN_GPe)
@@ -687,39 +672,40 @@ class Model(NetworkOperation):
             for i in xrange(3):
                 self.netPJsub['Cx'+str(i)].S_AMPA = S[i]
             self.net['CxI'].S_AMPA = S[0]
+
             # NMDA
             S = self.W.dot([SCx0_NMDA, SNMDA['1']['Cx'], SNMDA['2']['Cx']])
             for i in xrange(3):
                 self.netPJsub['Cx'+str(i)].S_NMDA = S[i]
             self.net['CxI'].S_NMDA = S[0] + self.wNMDA_SCE_CxI*(SNMDA['1']['SCE']+SNMDA['2']['SCE'])
+
             # GABA
             S = self.net['CxI'].sGABA.sum()
             self.net['CxE'].S_GABA = S
             self.net['CxI'].S_GABA = S
 
             for i in ['1','2']:
-                # for SCE->SCI
+                # For SCE -> SCI
             	SNMDA[i]['SCE_F']=dot(self.netPJsub['SCE'+i].F, self.netPJsub['SCE'+i].sNMDA)
 
                 self.netPJsub['Cx'+i].S_NMDA += self.wNMDA_SCE_CxE*(SNMDA['1']['SCE']+SNMDA['2']['SCE'])
-                # Str:
+
+                # Str
                 self.netPJsub['Str'+i].S_AMPA = SAMPA[i]['Cx']
                 self.netPJsub['Str'+i].S_GABA = SGABA[i]['Str']
 
-                # SNr:
-                #self.netPJsub['SNr'+i].S_AMPA = 0
+                # SNr
                 self.netPJsub['SNr'+i].S_NMDA = SNMDA[i]['STN']
                 self.netPJsub['SNr'+i].S_GABA = SGABA[i]['Str'] + self.wGABA_GPe_SNr*SGABA[i]['GPe']
 
-
-                # GPe:
+                # GPe
                 self.netPJsub['GPe'+i].S_AMPA = self.sconn_STN_GPe.dot(self.netPJsub['STN'+i].sAMPA)
                 self.netPJsub['GPe'+i].S_NMDA = self.sconn_STN_GPe.dot(self.netPJsub['STN'+i].sNMDA)
                 self.netPJsub['GPe'+i].S_GABA = self.sconn_GPe_GPe.dot(self.netPJsub['GPe'+i].sGABA)*self.wGABA_GPe_GPe + SGABA[i]['Str']
                 # STN:
                 self.netPJsub['STN'+i].S_GABA = self.sconn_GPe_STN.dot(self.netPJsub['GPe'+i].sGABA)
 
-                # SC:
+                # SC
                 self.netPJsub['SCE'+i].S_AMPA = SAMPA[i]['Cx']
                 self.netPJsub['SCE'+i].S_NMDA = SNMDA[i]['SCE']
                 self.netPJsub['SCE'+i].S_GABA = SGABA[i]['SNr']+ self.wGABA_SCI_SCE*SGABA['SCI']
@@ -739,7 +725,7 @@ class Model(NetworkOperation):
         #---------------------------------------------------------------------------------
 
         rates = OrderedDict()
-        for x in netPJsub.keys():# Cx0 Cx1 Cx2 Str1 Str2 SNr1 SNr2 GPe1 GPe2 STN1 STN2 Th1 Th2
+        for x in netPJsub:
             rates[x] = PopulationRateMonitor(netPJsub[x], bin=2*ms)
 
         #---------------------------------------------------------------------------------
