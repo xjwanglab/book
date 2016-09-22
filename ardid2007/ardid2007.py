@@ -201,8 +201,8 @@ class Model(NetworkOperation):
         clocks         = OrderedDict()
         clocks['main'] = Clock(dt)
         clocks['nmda'] = Clock(dt*10)  # NMDA update is less frequent
-        #clocks['mons'] = Clock(1.0*ms)
-        clocks['mons'] = Clock(dt)
+        clocks['mons'] = Clock(1.0*ms)
+        #clocks['mons'] = Clock(dt)
 
         super(Model, self).__init__(clock=clocks['main'])
 
@@ -214,18 +214,19 @@ class Model(NetworkOperation):
         p = modelparams.copy()
         p_neuron = p['neuron']
 
+        areas = ['mt','pfc']        # areas
+        conns = ['pfc2mt','mt2pfc'] # connections
+
         # Rescale conductances by number of neurons
-        for area in ['mt','pfc']:
+        for area in areas:
             for conductance in ['gAMPA_E', 'gAMPA_I', 'gNMDA_E', 'gNMDA_I']:
                 p[area][conductance] /= p_neuron['N_E']
             for conductance in ['gGABA_E', 'gGABA_I']:
                 p[area][conductance] /= p_neuron['N_I']
 
-        for conn in ['mt2pfc', 'pfc2mt']:
+        for conn in conns:
             p['conn']['gAMPA_E_'+conn] /= p_neuron['N_E']
             p['conn']['gAMPA_I_'+conn] /= p_neuron['N_E']
-
-        areas = ['mt','pfc']
 
         #---------------------------------------------------------------------------------
         # Neuron populations
@@ -316,7 +317,7 @@ class Model(NetworkOperation):
                 self.exc[area].G_AMPA = irfft(self.fw[area] * fsAMPA[area], N_E) * p[area]['gAMPA_E']
                 self.inh[area].G_AMPA = fsAMPA[area][0]  * p[area]['gAMPA_I']
 
-            for conn in ['pfc2mt','mt2pfc']:
+            for conn in conns:
                 area_from, area_to = conn.split('2')
                 tmp = irfft(self.fw[conn] * fsAMPA[area_from], N_E)
                 self.exc[area_to].G_AMPA += p_conn['gAMPA_E_'+conn] * tmp
@@ -390,8 +391,9 @@ class Model(NetworkOperation):
 
         # Randomly initialize membrane potentials
         for pop in ['E', 'I']:
-            self.net[pop].V = np.random.uniform(self.p['neuron']['Vreset'], self.p['neuron']['Vth'],
-                                                size=2*self.p['neuron']['N_'+pop])
+            self.net[pop].V = np.random.uniform(self.p['neuron']['Vreset'],
+                                                self.p['neuron']['Vth'],
+                                                size=len(self.net[pop].V))
 
         # Set synaptic variables to zero
         for var in ['sAMPA', 'x', 'sNMDA']:
