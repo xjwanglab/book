@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-A replication of Chaudhuri et al. Neuron 2015
+A replication of
+Chaudhuri, Rishidev, et al.
+"A large-scale circuit mechanism for hierarchical dynamical processing in the primate cortex."
+Neuron 88.2 (2015): 419-431.
 
 Figure 3A can not be reproduced exactly because the parameters used to generate
 the figure in original paper is of higher precision than the parameters reported.
