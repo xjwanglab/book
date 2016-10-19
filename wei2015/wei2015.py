@@ -11,7 +11,7 @@ complex data.
 from __future__ import division
 
 import cPickle as pickle
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 
 import random as pyrand # Import before Brian floods the namespace
 
@@ -646,22 +646,21 @@ class Model(NetworkOperation):
         # Link pre-synaptic variables to post-synaptic variables
         @network_operation(when='start', clock=clock)
         def recurrent_input():
-            SAMPA = defaultdict(dict)
-            SNMDA = defaultdict(dict)
-            SGABA = defaultdict(dict)
+            SAMPA = {i: {} for i in ['1', '2']}
+            SNMDA = {i: {} for i in ['1', '2']}
+            SGABA = {i: {} for i in ['1', '2']}
 
             for x in ['Cx', 'STN']:
-                for i in ['1','2']:
+                for i in ['1', '2']:
                     SAMPA[i][x] = self.netPJsub[x+i].sAMPA.sum()
                     SNMDA[i][x] = self.netPJsub[x+i].sNMDA.sum()
 
             for x in ['Str', 'SNr', 'GPe']:
-                for i in ['1','2']:
+                for i in ['1', '2']:
                     SGABA[i][x] = self.netPJsub[x+i].sGABA.sum()
 
-            for i in ['1','2']:
+            for i in ['1', '2']:
                 SNMDA[i]['SCE'] = self.netPJsub['SCE'+i].sNMDA.sum()
-
 
             SGABA['SCI'] = self.net['SCI'].sGABA.sum()
 
@@ -735,7 +734,6 @@ class Model(NetworkOperation):
         self.params   = params
         self.net      = net
         self.netPJsub = netPJsub
-        #self.mons     = mons
         self.rates    = rates
 
         # Add network objects and monitors to NetworkOperation's contained_objects
@@ -749,10 +747,12 @@ class Model(NetworkOperation):
 
         # Randomly initialize membrane potentials
         for x in ['E', 'I']:
-            self.net['Cx'+x].V = np.random.uniform(self.params['Cx']['Vreset'], self.params['Cx']['Vth'],
-                                              size=self.params['Cx']['N_'+x])
+            self.net['Cx'+x].V = np.random.uniform(self.params['Cx']['Vreset'],
+                                                   self.params['Cx']['Vth'],
+                                                   size=self.params['Cx']['N_'+x])
         for x in ['Str', 'SNr', 'GPe', 'STN', 'SCE', 'SCI']:
-            self.net[x].V = np.random.uniform(self.params[x]['Vreset'], self.params[x]['Vth'],
+            self.net[x].V = np.random.uniform(self.params[x]['Vreset'],
+                                              self.params[x]['Vth'],
                                               size=self.params[x]['N_PJ'])
 
         # Set synaptic variables to zero
