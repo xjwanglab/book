@@ -9,8 +9,6 @@ Parameter taken from Brian example code
 """
 from __future__ import division
 from collections import OrderedDict
-from scipy.signal import fftconvolve
-import scipy.stats
 import random as pyrand # Import before Brian floods the namespace
 
 # Once your code is working, turn units off for speed
