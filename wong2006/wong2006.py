@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Double ring model
+Two population decision making model
 
 References:
 Wong, Kong-Fatt, and Xiao-Jing Wang.
