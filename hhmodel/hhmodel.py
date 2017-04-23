@@ -1,6 +1,9 @@
 """
 Hodgkin-Huxley model
 
+Parameter taken from Brian example code
+(http://brian2.readthedocs.io/en/2.0rc/examples/IF_curve_Hodgkin_Huxley.html)
+
 @author: Guangyu Robert Yang @ 2017/4
 
 """
