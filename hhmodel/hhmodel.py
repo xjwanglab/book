@@ -114,13 +114,6 @@ class Model(NetworkOperation):
                              implicit=True, freeze=True)
 
         #---------------------------------------------------------------------------------
-        # Background input (post-synaptic)
-        #---------------------------------------------------------------------------------
-
-        # net['pg'] = PoissonGroup(n_neuron, params['nu_ext'], clock=clocks['main'])
-        # net['ic'] = IdentityConnection(net['pg'], net['neuron'], 'ge', weight=6*nS)
-
-        #---------------------------------------------------------------------------------
         # Record spikes
         #---------------------------------------------------------------------------------
 
