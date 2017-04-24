@@ -33,6 +33,18 @@ set_global_preferences(
     gcc_options=['-ffast-math', '-march=native']
     )
 
+
+#=========================================================================================
+# Helper function
+#=========================================================================================
+
+def angle_diff(theta1, theta2, mode='rad'):
+    # Compute the angle difference between theta1 and theta2 on a circle
+    angle_circle = 2*np.pi if mode == 'rad' else 360.
+    diff = abs(theta1-theta2)
+    return np.minimum(diff, angle_circle-diff)
+
+
 #=========================================================================================
 # Equations
 #=========================================================================================
@@ -405,7 +417,7 @@ class Model(NetworkOperation):
         self.Istim = dict()
         for pop in ['E', 'I']:
             N = self.p['neuron']['N_'+pop]
-            dtheta = deg2rad(stimparams['theta_stim'] - np.arange(N)/N*360.)
+            dtheta = deg2rad(angle_diff(stimparams['theta_stim'], np.arange(N)/N*360., 'deg'))
             self.Istim[pop]  = (stimparams['I0_'+pop] +
             stimparams['I1_'+pop] * np.exp(stimparams['mu']*(np.cos(dtheta)-1)))
 

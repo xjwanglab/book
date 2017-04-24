@@ -38,6 +38,16 @@ set_global_preferences(
     )
 
 #=========================================================================================
+# Helper function
+#=========================================================================================
+
+def angle_diff(theta1, theta2, mode='rad'):
+    # Compute the angle difference between theta1 and theta2 on a circle
+    angle_circle = 2*np.pi if mode == 'rad' else 360.
+    diff = abs(theta1-theta2)
+    return np.minimum(diff, angle_circle-diff)
+
+#=========================================================================================
 # Equations
 #=========================================================================================
 
@@ -340,7 +350,7 @@ class Model(NetworkOperation):
 
         # Set stimulus
         N_E = self.params['N_E']
-        dtheta = stimparams['theta_stim'] - np.arange(N_E)/N_E*360.
+        dtheta = angle_diff(stimparams['theta_stim'], np.arange(N_E)/N_E*360., 'deg')
         self.Istim  = stimparams['Ipeak']*np.exp(-dtheta**2/2/stimparams['sigma_stim']**2)
 
 
@@ -368,3 +378,4 @@ if __name__ == '__main__':
     plt.xlabel('Time (second)')
     plt.ylabel('Neuron index')
     plt.savefig('workingmemory_ringmodel.pdf')
+    plt.show()
