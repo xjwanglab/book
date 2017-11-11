@@ -7,23 +7,7 @@ http://dx.doi.org/10.1016/S0896-6273(02)01092-9
 """
 from collections import OrderedDict
 
-import random as pyrand # Import before Brian floods the namespace
-
-# Once code is working, turn off unit-checking for speed
-# import brian_no_units
-
-from brian import *
-
-# Make Brian faster
-set_global_preferences(
-    useweave=True,
-    usecodegen=True,
-    usecodegenweave=True,
-    usecodegenstateupdate=True,
-    usenewpropagate=True,
-    usecodegenthreshold=True,
-    gcc_options=['-ffast-math', '-march=native']
-    )
+from brian2 import *
 
 #=========================================================================================
 # Equations
@@ -33,12 +17,12 @@ set_global_preferences(
 # S_AMPA, S_NMDA, S_GABA are synaptic conductances stored post-synaptically
 equations = dict(
     E = '''
-    dV/dt         = (-(V - V_L) - Isyn/gE) / tau_m_E : mV
-    Isyn          = I_AMPA_ext + I_AMPA + I_NMDA + I_GABA : pA
-    I_AMPA_ext    = gAMPA_ext_E*sAMPA_ext*(V - V_E) : pA
-    I_AMPA        = gAMPA_E*S_AMPA*(V - V_E) : pA
-    I_NMDA        = gNMDA_E*S_NMDA*(V - V_E)/(1 + exp(-a*V)/b) : pA
-    I_GABA        = gGABA_E*S_GABA*(V - V_I) : pA
+    dV/dt         = (-(V - V_L) - Isyn/gE) / tau_m_E : volt (unless refractory)
+    Isyn          = I_AMPA_ext + I_AMPA + I_NMDA + I_GABA : amp
+    I_AMPA_ext    = gAMPA_ext_E*sAMPA_ext*(V - V_E) : amp
+    I_AMPA        = gAMPA_E*S_AMPA*(V - V_E) : amp
+    I_NMDA        = gNMDA_E*S_NMDA*(V - V_E)/(1 + exp(-a*V)/b) : amp
+    I_GABA        = gGABA_E*S_GABA*(V - V_I) : amp
     dsAMPA_ext/dt = -sAMPA_ext/tauAMPA : 1
     dsAMPA/dt     = -sAMPA/tauAMPA : 1
     dx/dt         = -x/tau_x : 1
@@ -49,12 +33,12 @@ equations = dict(
     ''',
 
     I = '''
-    dV/dt         = (-(V - V_L) - Isyn/gI) / tau_m_I : mV
-    Isyn          = I_AMPA_ext + I_AMPA + I_NMDA + I_GABA : pA
-    I_AMPA_ext    = gAMPA_ext_I*sAMPA_ext*(V - V_E) : pA
-    I_AMPA        = gAMPA_I*S_AMPA*(V - V_E) : pA
-    I_NMDA        = gNMDA_I*S_NMDA*(V - V_E)/(1 + exp(-a*V)/b) : pA
-    I_GABA        = gGABA_I*S_GABA*(V - V_I) : pA
+    dV/dt         = (-(V - V_L) - Isyn/gI) / tau_m_I : volt (unless refractory)
+    Isyn          = I_AMPA_ext + I_AMPA + I_NMDA + I_GABA : amp
+    I_AMPA_ext    = gAMPA_ext_I*sAMPA_ext*(V - V_E) : amp
+    I_AMPA        = gAMPA_I*S_AMPA*(V - V_E) : amp
+    I_NMDA        = gNMDA_I*S_NMDA*(V - V_E)/(1 + exp(-a*V)/b) : amp
+    I_GABA        = gGABA_I*S_GABA*(V - V_I) : amp
     dsAMPA_ext/dt = -sAMPA_ext/tauAMPA : 1
     dsGABA/dt     = -sGABA/tauGABA : 1
     S_AMPA: 1
@@ -139,24 +123,24 @@ class Stimulus(object):
 
         self.set_coh(coh)
 
-    def s1(self, t):
-        return self.pos*(self.Ton <= t < self.Toff)
+    def s1(self, T):
+        t_array = np.arange(0, T + defaultclock.dt, defaultclock.dt)
+        vals = np.zeros_like(t_array) * Hz
+        vals[np.logical_and(self.Ton <= t_array, t_array < self.Toff)] = self.pos
+        return TimedArray(vals, defaultclock.dt)
 
-    def s2(self, t):
-        return self.neg*(self.Ton <= t < self.Toff)
+    def s2(self, T):
+        t_array = np.arange(0, T + defaultclock.dt, defaultclock.dt)
+        vals = np.zeros_like(t_array) * Hz
+        vals[np.logical_and(self.Ton <= t_array, t_array < self.Toff)] = self.neg
+        return TimedArray(vals, defaultclock.dt)
 
     def set_coh(self, coh):
         self.pos = self.mu0*(1 + coh/100)
         self.neg = self.mu0*(1 - coh/100)
 
-class Model(NetworkOperation):
-    def __init__(self, modelparams, clock, stimulus):
-        #---------------------------------------------------------------------------------
-        # Initialize
-        #---------------------------------------------------------------------------------
-
-        super(Model, self).__init__(clock=clock)
-
+class Model(object):
+    def __init__(self, modelparams, stimulus, T):
         #---------------------------------------------------------------------------------
         # Complete the model specification
         #---------------------------------------------------------------------------------
@@ -165,10 +149,10 @@ class Model(NetworkOperation):
         params = modelparams.copy()
 
         # Rescale conductances by number of neurons
-        for x in ['gAMPA_E', 'gAMPA_I', 'gNMDA_E', 'gNMDA_I']:
-            params[x] /= params['N_E']
-        for x in ['gGABA_E', 'gGABA_I']:
-            params[x] /= params['N_I']
+        for par in ['gAMPA_E', 'gAMPA_I', 'gNMDA_E', 'gNMDA_I']:
+            params[par] /= params['N_E']
+        for par in ['gGABA_E', 'gGABA_I']:
+            params[par] /= params['N_I']
 
         # Make local variables for convenience
         N_E   = params['N_E']
@@ -203,54 +187,59 @@ class Model(NetworkOperation):
         exc = OrderedDict() # Excitatory subpopulations
 
         # E/I populations
-        for x in ['E', 'I']:
-            net[x] = NeuronGroup(params['N_'+x],
-                                 Equations(equations[x], **params),
-                                 threshold=params['Vth'],
-                                 reset=params['Vreset'],
-                                 refractory=params['tau_ref_'+x],
-                                 clock=clock,
-                                 order=2, freeze=True)
+        for label in ['E', 'I']:
+            net[label] = NeuronGroup(params['N_'+label],
+                                     equations[label],
+                                     method='rk2',
+                                     threshold='V > Vth',
+                                     reset='V = Vreset',
+                                     refractory=params['tau_ref_'+label],
+                                     namespace=params)
 
         # Excitatory subpopulations
-        for x in xrange(3):
-            exc[x] = net['E'].subgroup(params['N'+str(x)])
+        exc[0] = net['E'][:params['N0']]
+        exc[1] = net['E'][params['N0']:params['N0'] + params['N1']]
+        exc[2] = net['E'][params['N0'] + params['N1']:]
 
         #---------------------------------------------------------------------------------
         # Background input (post-synaptic)
         #---------------------------------------------------------------------------------
 
-        for x in ['E', 'I']:
-            net['pg'+x] = PoissonGroup(params['N_'+x], params['nu_ext'], clock=clock)
-            net['ic'+x] = IdentityConnection(net['pg'+x], net[x], 'sAMPA_ext',
-                                             delay=delay)
+        for label in ['E', 'I']:
+            net['pg'+label] = PoissonGroup(params['N_'+label], params['nu_ext'])
+            net['ic'+label] = Synapses(net['pg'+label], net[label],
+                                       on_pre='sAMPA_ext += 1', delay=delay)
+            net['ic'+label].connect(condition='i == j')
 
         #---------------------------------------------------------------------------------
         # Recurrent input
         #---------------------------------------------------------------------------------
 
         # Change pre-synaptic variables
-        net['icAMPA'] = IdentityConnection(net['E'], net['E'], 'sAMPA', delay=delay)
-        net['icNMDA'] = IdentityConnection(net['E'], net['E'], 'x',     delay=delay)
-        net['icGABA'] = IdentityConnection(net['I'], net['I'], 'sGABA', delay=delay)
+        net['icAMPA'] = Synapses(net['E'], net['E'], on_pre='sAMPA += 1', delay=delay)
+        net['icAMPA'].connect(condition='i == j')
+        net['icNMDA'] = Synapses(net['E'], net['E'], on_pre='x += 1', delay=delay)
+        net['icNMDA'].connect(condition='i == j')
+        net['icGABA'] = Synapses(net['I'], net['I'], on_pre='sGABA += 1', delay=delay)
+        net['icGABA'].connect(condition='i == j')
 
         # Link pre-synaptic variables to post-synaptic variables
-        @network_operation(when='start', clock=clock)
+        @network_operation(when='start')
         def recurrent_input():
             # AMPA
-            S = self.W.dot([self.exc[i].sAMPA.sum() for i in xrange(3)])
-            for i in xrange(3):
-                self.exc[i].S_AMPA = S[i]
+            S = self.W.dot([sum(self.exc[ind].sAMPA) for ind in xrange(3)])
+            for ind in xrange(3):
+                self.exc[ind].S_AMPA = S[ind]
             self.net['I'].S_AMPA = S[0]
 
             # NMDA
-            S = self.W.dot([self.exc[i].sNMDA.sum() for i in xrange(3)])
-            for i in xrange(3):
-                self.exc[i].S_NMDA = S[i]
+            S = self.W.dot([sum(self.exc[ind].sNMDA) for ind in xrange(3)])
+            for ind in xrange(3):
+                self.exc[ind].S_NMDA = S[ind]
             self.net['I'].S_NMDA = S[0]
 
             # GABA
-            S = self.net['I'].sGABA.sum()
+            S = sum(self.net['I'].sGABA)
             self.net['E'].S_GABA = S
             self.net['I'].S_GABA = S
 
@@ -258,18 +247,23 @@ class Model(NetworkOperation):
         # External input (post-synaptic)
         #---------------------------------------------------------------------------------
 
-        for i, stimulus in zip([1, 2], [stimulus.s1, stimulus.s2]):
-            net['pg'+str(i)] = PoissonGroup(params['N'+str(i)], stimulus, clock=clock)
-            net['ic'+str(i)] = IdentityConnection(net['pg'+str(i)], exc[i],
-                                                  'sAMPA_ext', delay=delay)
+        global s1
+        s1 = stimulus.s1(T)
+        global s2
+        s2 = stimulus.s2(T)
+        for ind, sname in zip([1, 2], ['s1', 's2']):
+            net['pg'+str(ind)] = PoissonGroup(params['N'+str(ind)], '%s(t)' % sname)
+            net['ic'+str(ind)] = Synapses(net['pg'+str(ind)], exc[ind],
+                                          on_pre='sAMPA_ext += 1', delay=delay)
+            net['ic'+str(ind)].connect(condition='i == j')
 
         #---------------------------------------------------------------------------------
         # Record spikes
         #---------------------------------------------------------------------------------
 
         mons = OrderedDict()
-        for x in ['E', 'I']:
-            mons['spikes'+x] = SpikeMonitor(net[x], record=True)
+        for label in ['E', 'I']:
+            mons['spikes'+label] = SpikeMonitor(net[label], record=True)
 
         #---------------------------------------------------------------------------------
         # Setup
@@ -281,54 +275,51 @@ class Model(NetworkOperation):
         self.mons   = mons
 
         # Add network objects and monitors to NetworkOperation's contained_objects
-        self.contained_objects += self.net.values() + self.mons.values()
-        self.contained_objects += [recurrent_input]
+        self.contained_objects = self.net.values() + self.mons.values()
+        self.contained_objects.extend([recurrent_input])
 
     def reinit(self):
-        # Reset network components
-        for n in self.net.values() + self.mons.values():
-            n.reinit()
-
         # Randomly initialize membrane potentials
-        for x in ['E', 'I']:
-            self.net[x].V = np.random.uniform(self.params['Vreset'], self.params['Vth'],
-                                              size=self.params['N_'+x])
-
+        for label in ['E', 'I']:
+            self.net[label].V = np.random.uniform(self.params['Vreset'],
+                                                  self.params['Vth'],
+                                                  size=self.params['N_'+label]) * volt
+            
         # Set synaptic variables to zero
-        for x in ['sAMPA_ext', 'sAMPA', 'x', 'sNMDA']:
-            setattr(self.net['E'], x, 0)
-        for x in ['sAMPA_ext', 'sGABA']:
-            setattr(self.net['I'], x, 0)
+        for par in ['sAMPA_ext', 'sAMPA', 'x', 'sNMDA']:
+            setattr(self.net['E'], par, 0)
+        for par in ['sAMPA_ext', 'sGABA']:
+            setattr(self.net['I'], par, 0)
 
 #=========================================================================================
 # Simulation
 #=========================================================================================
 
 class Simulation(object):
-    def __init__(self, modelparams, stimparams, dt):
-        self.clock    = Clock(dt)
+    def __init__(self, modelparams, stimparams, sim_dt, T):
+        defaultclock.dt = sim_dt
         self.stimulus = Stimulus(stimparams['Ton'], stimparams['Toff'],
                                  stimparams['mu0'], stimparams['coh'])
-        self.model    = Model(modelparams, self.clock, self.stimulus)
-        self.network  = Network(self.model)
+        self.model    = Model(modelparams, self.stimulus, T)
+        self.network  = Network(self.model.contained_objects)
 
-    def run(self, T, seed=1):
-        # Initialize random number generators
-        pyrand.seed(seed)
-        np.random.seed(seed)
+    def run(self, T, randseed=1):
+        # Initialize random number generator
+        seed(randseed)
 
         # Initialize and run
-        self.clock.reinit()
         self.model.reinit()
         self.network.run(T, report='text')
 
     def savespikes(self, filename_exc, filename_inh):
         print("Saving excitatory spike times to " + filename_exc)
-        np.savetxt(filename_exc, self.model.mons['spikesE'].spikes, fmt='%-9d %25.18e',
+        np.savetxt(filename_exc, zip(self.model.mons['spikesE'].i,
+                                     self.model.mons['spikesE'].t), fmt='%-9d %25.18e',
                    header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
 
         print("Saving inhibitory spike times to " + filename_inh)
-        np.savetxt(filename_inh, self.model.mons['spikesI'].spikes, fmt='%-9d %25.18e',
+        np.savetxt(filename_inh, zip(self.model.mons['spikesI'].i,
+                                     self.model.mons['spikesI'].t), fmt='%-9d %25.18e',
                    header='{:<8} {:<25}'.format('Neuron', 'Time (s)'))
 
     def loadspikes(self, *args):
@@ -341,15 +332,14 @@ if __name__ == '__main__':
         Ton  = 0.5*second, # Stimulus onset
         Toff = 1.5*second, # Stimulus offset
         mu0  = 40*Hz,      # Input rate
-        coh  = 0           # Percent coherence
+        coh  = 1.6         # Percent coherence
         )
 
-    dt = 0.02*ms
+    sim_dt = 0.02*ms
     T  = 2*second
 
-    sim = Simulation(modelparams, stimparams, dt)
-    sim.stimulus.set_coh(1.6) # Shows how coherence can be changed
-    sim.run(T, seed=1234)
+    sim = Simulation(modelparams, stimparams, sim_dt, T)
+    sim.run(T, randseed=4)
     sim.savespikes('spikesE.txt', 'spikesI.txt')
 
     #-------------------------------------------------------------------------------------
