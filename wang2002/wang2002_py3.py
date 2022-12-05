@@ -3,7 +3,7 @@ Probabilistic decision making by slow reverberation in cortical circuits.
 X-J Wang, Neuron 2002.
 
 http://dx.doi.org/10.1016/S0896-6273(02)01092-9
-
+Edited for Python3 by John, 10/2022
 """
 from collections import OrderedDict
 
@@ -275,12 +275,10 @@ class Model(object):
         self.mons   = mons
 
         # Add network objects and monitors to NetworkOperation's contained_objects.
-        # John: shut down for now 
+        # Commented lines are outdated for Python3 or newset version of Brian2 as 10/2022
 #        self.contained_objects = {**self.net , **self.mons }
 #        self.contained_objects.append([recurrent_input])
 
-#        print(self.net.values())
-#        print(self.mons.values())
         self.contained_objects = list(self.net.values()) + list(self.mons.values())
         self.contained_objects.extend([recurrent_input])
 
