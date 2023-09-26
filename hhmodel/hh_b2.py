@@ -1,11 +1,11 @@
 """
 Minimum implement of HH model with updated brain2 package.
-The installation can be achieved through the follwoing codes, tested on the Google Colab platform. 
+The installation can be achieved through the following codes, tested on the Google Colab platform. 
 
 !pip install brian2
 !pip install brian2tools
 
-Editted by: John Meng, 09/2023. All rights preserved.
+Editted by: John Meng, 09/2023. 
 """
 
   
