@@ -9,8 +9,7 @@ This code is written in Python 2.7 and requires
 ## References
 
 # Note:
-The codes deposited here are more about a historical references, but not actively maintained. If you want to use the code,
-a better practice is to rewrite the code in the current Python and Brian version. 
+The codes deposited here are more about historical references, but not actively maintained. If you want to use the code, a better practice is to rewrite the code in the current Python and Brian version, but not to set up Python 2.7 on your computer
 
 If you have updated the code and want to share with the community, please contact the administrator of this poject.
 
