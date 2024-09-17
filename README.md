@@ -14,5 +14,7 @@ The codes deposited here are more about historical references, but not actively 
 If you have updated the code and want to share with the community, please contact the administrator of this poject.
 
 One example to upload the code can be found at:
+https://github.com/johnhongyumeng/book/tree/master/ardid2007
+of which the updated version is mirrored from:
 https://github.com/deyingsong/ardid2007_brian2/blob/main/ardid2007_brian2.py
 John Meng, 09/2024
